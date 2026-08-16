@@ -126,7 +126,7 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .prod .pp{font-size:.84rem;color:var(--ink);font-weight:500;margin-top:4px;letter-spacing:.05em}
 .prod .pr{font-size:.68rem;color:var(--gold);font-weight:400;margin-left:8px}
 .xadd{display:block}
-.xadd textarea{width:100%;border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:.8rem;background:var(--card);font-family:var(--sans);resize:vertical;line-height:1.7}
+.xadd textarea{width:100%;border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:.8rem;background:var(--card);font-family:var(--sans);resize:vertical;line-height:1.6;min-height:0;height:38px;white-space:nowrap;overflow-x:auto}
 .xadd textarea:focus{outline:none;border-color:var(--gold)}
 .xpost{position:relative;margin-bottom:10px}
 .xpost .xdel{position:absolute;right:-6px;top:-6px;z-index:2;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);cursor:pointer;font-size:.85rem;line-height:1}
@@ -423,14 +423,13 @@ function memoPanel(it){
   <div class="panel">
     <h4>自分の投稿</h4>
     <div class="xadd">
-      <textarea id="myurl" rows="2" placeholder="投稿した𝕏・noteのURLを貼り付け（複数まとめてOK）"
+      <textarea id="myurl" rows="1" placeholder="投稿した𝕏・noteのURLを貼り付け（複数まとめてOK）"
         onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addMyPost()}"></textarea>
       <div class="btnrow" style="margin-top:10px">
         <button class="btn small ghost" onclick="pasteMyPost()">貼り付け</button>
         <button class="btn small ghost" onclick="addMyPost()">追加</button>
       </div>
     </div>
-    <div class="note" style="margin-top:8px">𝕏やnoteに投稿したら、そのURLを貼っておくと、この記録と一緒に読み返せます。</div>
     <div id="mylist" style="margin-top:16px">${(it.myPosts||[]).length?(it.myPosts||[]).map((u,i)=>myEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
   </div>`;
 }
@@ -588,14 +587,13 @@ function reviewPanel(it){
       <button class="btn small accent" onclick="window.open('${xFav}','_blank')">いいねが多い感想を探す →</button>
     </div>
     <div class="xadd">
-      <textarea id="xurl" rows="2" placeholder="投稿のURLを貼り付け（複数まとめてOK）"
+      <textarea id="xurl" rows="1" placeholder="投稿のURLを貼り付け（複数まとめてOK）"
         onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addXPost()}"></textarea>
       <div class="btnrow" style="margin-top:10px">
         <button class="btn small ghost" onclick="pasteXPost()">貼り付け</button>
         <button class="btn small ghost" onclick="addXPost()">追加</button>
       </div>
     </div>
-    <div class="note" style="margin-top:8px">気に入った投稿の「リンクをコピー」→「貼り付け」を押すだけで追加されます。改行で並べれば3件まとめて追加できます（3件ほどあると読み応えのあるページになります）。</div>
     <div id="xlist" style="margin-top:16px">${posts.length?posts.map((u,i)=>xEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
   </div>
   <div class="panel">
@@ -604,14 +602,13 @@ function reviewPanel(it){
       <button class="btn small accent" onclick="window.open('${noteUrl}','_blank')">note で感想記事を探す →</button>
     </div>
     <div class="xadd">
-      <textarea id="nturl" rows="2" placeholder="記事のURLを貼り付け（複数まとめてOK）"
+      <textarea id="nturl" rows="1" placeholder="記事のURLを貼り付け（複数まとめてOK）"
         onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addNotePost()}"></textarea>
       <div class="btnrow" style="margin-top:10px">
         <button class="btn small ghost" onclick="pasteNotePost()">貼り付け</button>
         <button class="btn small ghost" onclick="addNotePost()">追加</button>
       </div>
     </div>
-    <div class="note" style="margin-top:8px">note記事のURL（https://note.com/…/n/…）を貼ると、記事カードが読める形で表示されます。</div>
     <div id="ntlist" style="margin-top:16px">${notes.length?notes.map((u,i)=>noteEmbedHtml(u,i)).join(''):'<div class="note">まだ記事が登録されていません。</div>'}</div>
   </div>`;
 }
