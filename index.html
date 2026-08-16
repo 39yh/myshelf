@@ -854,11 +854,9 @@ function baseText(it){
   s+=T.hash+' #MyShelf';
   return s;
 }
-async function postX(id){
+function postX(id){
   const it=items.find(x=>x.id===id);
-  const tail=await affiliateTail(it,'x');
-  const text=xFit(baseText(it),tail);
-  open(`https://twitter.com/intent/tweet?text=${enc(text)}`,'_blank');
+  open(`https://twitter.com/intent/tweet?text=${enc(xFit(baseText(it),''))}`,'_blank');
 }
 let ai={itemId:null,mode:'x',text:''};
 function openAiModal(id){ai={itemId:id,mode:'x',text:''};drawAiModal();updateXCount();runFormat()}
