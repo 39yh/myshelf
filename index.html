@@ -7,6 +7,21 @@
 <title>MyShelf — 本・映画・美術館の感想ノート</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<meta name="description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MyShelf">
+<meta property="og:title" content="MyShelf — 本・映画・美術館の感想ノート">
+<meta property="og:description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta property="og:url" content="https://myshelf-two.vercel.app/">
+<meta property="og:image" content="https://myshelf-two.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MyShelf — 本・映画・美術館の感想ノート">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MyShelf — 本・映画・美術館の感想ノート">
+<meta name="twitter:description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta name="twitter:image" content="https://myshelf-two.vercel.app/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Shippori+Mincho+B1:wght@500;600;700&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
@@ -965,7 +980,16 @@ function shareUrl(){return location.origin+location.pathname.replace(/index\.htm
 function shareText(){return 'MyShelf — 読んだ本・観た映画・訪れた美術館の感想を残せるノート'}
 async function shareApp(){
   try{
-    await navigator.share({title:'MyShelf',text:shareText(),url:shareUrl()});
+    const data={title:'MyShelf',text:shareText(),url:shareUrl()};
+    try{
+      const res=await fetch('og.png');
+      if(res.ok){
+        const blob=await res.blob();
+        const file=new File([blob],'myshelf.png',{type:'image/png'});
+        if(navigator.canShare&&navigator.canShare({files:[file]}))data.files=[file];
+      }
+    }catch(e2){}
+    await navigator.share(data);
   }catch(e){
     if(e&&e.name==='AbortError')return;
     copyShareLink();
