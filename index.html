@@ -162,6 +162,10 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .xcount{font-size:.72rem;color:var(--sub);text-align:right;margin-top:6px;letter-spacing:.04em}
 .xcount.near{color:var(--gold)}
 .xcount.over{color:var(--danger)}
+.sharegrid{display:flex;flex-direction:column;gap:10px}
+.sharegrid .btn{flex:1 1 auto;padding:13px 16px;font-size:.8rem}
+.panel.manage{background:transparent;box-shadow:none;border-style:dashed}
+.panel.manage h4{color:var(--sub)}
 .selrow{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:.84rem}
 .selrow:last-child{border-bottom:none}
 .selrow input{accent-color:var(--gold);width:16px;height:16px;flex-shrink:0}
@@ -466,16 +470,13 @@ function memoPanel(it){
     <h4>感想メモ</h4>
     <div class="memo-body">${it.memo?esc(it.memo):'<span style="color:var(--sub)">（未記入）</span>'}</div>
     ${(it.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join('')}
-    <hr class="sep">
-    <h4>シェア</h4>
-    <div class="btnrow" style="margin-top:8px">
+  </div>
+  <div class="panel">
+    <h4>シェアする</h4>
+    <div class="sharegrid">
       <button class="btn small accent" onclick="openAiModal('${it.id}')">✨ AI文章整形して投稿</button>
       <button class="btn small ghost" onclick="postX('${it.id}')">𝕏 そのまま投稿</button>
-    </div>
-    <div class="btnrow" style="margin-top:10px">
       <button class="btn small ghost" onclick="openPublish('one','${it.id}')">この記録を公開</button>
-      <button class="btn small ghost" onclick="go('form','${it.id}')">✏️ 編集</button>
-      <button class="btn small danger" onclick="delItem('${it.id}')">削除</button>
     </div>
   </div>
   <div class="panel">
@@ -489,6 +490,13 @@ function memoPanel(it){
       </div>
     </div>
     <div id="mylist" style="margin-top:16px">${(it.myPosts||[]).length?(it.myPosts||[]).map((u,i)=>myEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
+  </div>
+  <div class="panel manage">
+    <h4>この記録の管理</h4>
+    <div class="btnrow" style="margin-top:0">
+      <button class="btn small ghost" onclick="go('form','${it.id}')">編集する</button>
+      <button class="btn small danger" onclick="delItem('${it.id}')">削除する</button>
+    </div>
   </div>`;
 }
 /* ---- 自分の投稿（𝕏 / note 両対応） ---- */
@@ -999,14 +1007,7 @@ function renderSettings(){
       <button class="btn small ghost" onclick="copyShareLink()">リンクをコピー</button>
     </div>
   </div>
-
-  <div class="panel">
-    <h4>本棚を公開する</h4>
-    <div class="note" style="margin:0 0 14px">公開する記録を1件ずつ選んでリンクを作れます。公開するかどうか、どの記録を公開するかは利用者ご自身の判断です。<br><br>リンクには<b>作成した時点の内容</b>が入ります。あとから記録を書き直しても配布済みのリンクは古いままなので、その場合は作り直してください。<br><br>公開した内容の責任は公開したご本人にあり、運営者は公開された内容について一切の責任を負いません。リンクを知る人は誰でも閲覧できるため、第三者の権利を侵害する内容や、他人の個人情報を含む記録は公開しないでください。</div>
-    <div class="btnrow" style="margin-top:0">
-      <button class="btn small accent" onclick="openPublish('all')">公開リンクを作る</button>
-    </div>
-  </div>`;
+`;
 }
 function exportJson(){
   const blob=new Blob([JSON.stringify({items,exportedAt:new Date().toISOString()},null,1)],{type:'application/json'});
@@ -1114,7 +1115,7 @@ function openPublish(mode,id){
       <input type="text" id="pubname" value="${esc(n)}" placeholder="例: hapila" style="width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.95rem;background:transparent;font-family:var(--sans)">
       ${listHtml}
       <div class="note" style="margin-top:14px">
-        記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。<br><br>
+        記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。自分で登録したカバー画像はリンクが長くなりすぎるため含まれません。<br><br>
         <b>公開されるのは「リンクを作った時点」の内容です。</b>あとから記録を書き直しても、すでに配ったリンクの中身は変わりません。最新の内容を見せたいときは、もう一度リンクを作り直して配り直してください。<br><br>
         公開した内容の責任は公開したご本人にあります。運営者は内容について責任を負いません。
       </div>
@@ -1136,35 +1137,51 @@ function toggleAllSel(){
   boxes.forEach(b=>b.checked=!allOn);
   onSelChange();
 }
+const PUB_LIMIT=6000;
+async function buildList(picked,withImages,single){
+  return Promise.all(picked.map(async it=>{
+    const o=slimItem(it,single?await topProduct(it):null);
+    if(o.v&&o.v.startsWith('data:')){
+      delete o.v; // 端末内の画像はリンクが長くなりすぎるため含めない
+    }
+    return o;
+  }));
+}
+async function packUrl(name,list){
+  return shareUrl()+'#s='+await packData({v:1,n:name,i:list});
+}
 async function makePublicLink(){
   const box=$('#publink');if(!box)return;
   const name=($('#pubname')||{}).value?.trim()||'';
   lsSet('kansou_pubname',name);
-  let ids=pubDraft.mode==='one'?[pubDraft.id]:currentSel();
+  const ids=pubDraft.mode==='one'?[pubDraft.id]:currentSel();
   if(!ids.length){box.innerHTML='<div class="note" style="color:var(--danger)">公開する記録を1件以上選んでください。</div>';return}
   box.innerHTML='<div class="spin">リンクを作成中…</div>';
   try{
     const picked=ids.map(id=>items.find(x=>x.id===id)).filter(Boolean);
-    let list;
-    if(pubDraft.mode==='one'){
-      const it=picked[0];
-      const one=slimItem(it,await topProduct(it));
-      if(one.v&&one.v.startsWith('data:')){try{one.v=await shrinkImage(one.v,240,0.6)}catch(e){delete one.v}}
-      list=[one];
-    }else{
-      list=await Promise.all(picked.map(async it=>{
-        const o=slimItem(it,null);
-        if(o.v&&o.v.startsWith('data:')){
-          if(picked.length<=5){try{o.v=await shrinkImage(o.v,200,0.55)}catch(e){delete o.v}}
-          else delete o.v;
-        }
-        return o;
-      }));
+    const single=pubDraft.mode==='one';
+    let list=await buildList(picked,true,single);
+    let url=await packUrl(name,list);
+    let note='';
+    if(url.length>PUB_LIMIT&&list.some(o=>o.v&&o.v.startsWith('data:'))){
+      const lighter=await buildList(picked,false,single);
+      const u2=await packUrl(name,lighter);
+      if(u2.length<url.length){url=u2;list=lighter;note='リンクを短くするため、登録した画像は外しました。';}
     }
-    const packed=await packData({v:1,n:name,i:list});
-    const url=shareUrl()+'#s='+packed;
+    if(url.length>PUB_LIMIT&&picked.length>1){
+      const chunks=await splitLinks(name,picked);
+      window._pubUrl=chunks[0];
+      box.innerHTML=`
+        <div class="note" style="color:var(--gold)">選んだ${picked.length}件は1本のリンクに収まらないため、${chunks.length}本に分けました。それぞれをコピーして配れます。</div>
+        ${chunks.map((u,i)=>`
+          <div class="note" style="word-break:break-all;border:1px solid var(--line);border-radius:3px;padding:10px;background:var(--card);margin-top:8px">
+            <b>${i+1}/${chunks.length}</b><br>${esc(u)}
+            <div class="btnrow" style="margin-top:8px"><button class="btn small ghost" onclick="copyText('${u.replace(/'/g,"\\'")}')">コピー</button></div>
+          </div>`).join('')}
+        <div class="note">1本にまとめたい場合は、公開する記録を減らしてください（画像なしでおよそ20〜30件が目安です）。</div>`;
+      return;
+    }
     window._pubUrl=url;
-    const long=url.length>7000;
     box.innerHTML=`
       <div class="note" id="pubshown" style="word-break:break-all;border:1px solid var(--line);border-radius:3px;padding:10px;background:var(--card);max-height:110px;overflow:auto">${esc(url)}</div>
       <div class="btnrow" style="margin-top:12px;flex-wrap:wrap;row-gap:10px">
@@ -1173,9 +1190,29 @@ async function makePublicLink(){
         <button class="btn small ghost" onclick="sharePublicX()">𝕏 でシェア</button>
         <button class="btn small ghost" onclick="openPublicLink()">開いて確認</button>
       </div>
-      ${long?`<div class="note" style="color:var(--danger)">リンクが長い（${url.length.toLocaleString()}文字）ため、アプリによっては途中で切れることがあります。公開する記録を減らすか、短縮URLをお使いください。</div>`:''}
-      <div class="note">公開できるのは選んだ記録だけです。件数が多いとリンクが長くなるため、目安は20〜30件までです。</div>`;
-  }catch(e){box.innerHTML='<div class="note">リンクを作成できませんでした。</div>'}
+      ${note?`<div class="note" style="color:var(--gold)">${note}</div>`:''}
+      <div class="note">${url.length.toLocaleString()}文字のリンクです。長い場合は「短縮URLにする」を使うと配りやすくなります。</div>`;
+  }catch(e){box.innerHTML='<div class="note" style="color:var(--danger)">リンクを作成できませんでした。公開する記録を減らして、もう一度お試しください。</div>'}
+}
+async function splitLinks(name,picked){
+  const urls=[];let chunk=[];
+  for(const it of picked){
+    const next=[...chunk,it];
+    const list=await buildList(next,false,false);
+    const u=await packUrl(name,list);
+    if(u.length>PUB_LIMIT&&chunk.length){
+      urls.push(await packUrl(name,await buildList(chunk,false,false)));
+      chunk=[it];
+    }else{
+      chunk=next;
+    }
+  }
+  if(chunk.length)urls.push(await packUrl(name,await buildList(chunk,false,false)));
+  return urls;
+}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);toast('リンクをコピーしました')}
+  catch(e){toast('コピーできませんでした')}
 }
 function openPublicLink(){
   const u=window._pubUrl;if(!u)return;
@@ -1202,10 +1239,23 @@ async function copyPublicLink(){
   try{await navigator.clipboard.writeText(window._pubUrl);toast('リンクをコピーしました')}
   catch(e){toast('コピーできませんでした')}
 }
-function sharePublicX(){
+async function sharePublicX(){
   const n=($('#pubname')||{}).value?.trim()||'';
   const t=(pubDraft.mode==='one'?'読んだ本・観た映画の感想を公開しました':(n?n+'の':'')+'MyShelfを公開しました');
-  open(`https://twitter.com/intent/tweet?text=${enc(xFit(t,'\n'+window._pubUrl))}`,'_blank');
+  let url=window._pubUrl;
+  if(url.length>400){
+    try{
+      const r=await fetch(API_BASE+'/api/shorten?url='+enc(url));
+      const j=await r.json();
+      if(r.ok&&j.url){url=j.url;window._pubUrl=url;const el=$('#pubshown');if(el)el.textContent=url}
+    }catch(e){}
+  }
+  if(url.length>400){
+    await copyText(url);
+    toast('リンクが長いためコピーしました。Xに貼り付けてください');
+    return;
+  }
+  open(`https://twitter.com/intent/tweet?text=${enc(xFit(t,'\n'+url))}`,'_blank');
 }
 /* ---- 公開ページ（閲覧専用） ---- */
 let pubView=null;
