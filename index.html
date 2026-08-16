@@ -62,6 +62,11 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .typesel{display:flex;gap:10px}
 .typesel button{flex:1;border:1px solid var(--line);background:transparent;border-radius:2px;padding:13px 4px;font-size:.82rem;cursor:pointer;color:var(--sub);transition:all .2s;letter-spacing:.14em}
 .typesel button.on{border-color:var(--ink);color:var(--ink);font-weight:500;background:var(--card)}
+.typesel button .ti{display:block;margin:0 auto 5px;color:var(--gold);line-height:0}
+.typesel button.on .ti{color:var(--ink)}
+.tab svg{vertical-align:-2px;margin-right:3px;opacity:.75}
+.emoji-tile{color:var(--gold)}
+.dhead .tico{display:inline-block;vertical-align:-3px;margin-right:5px;color:var(--gold)}
 .starinput{font-size:1.7rem;cursor:pointer;color:#ddd8ca;user-select:none;letter-spacing:.12em}
 .starinput .lit{color:var(--gold)}
 .btnrow{display:flex;gap:12px;margin-top:26px}
@@ -148,11 +153,20 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:20px 0}
 <script>
 /* ============ state ============ */
 const TYPES={book:{label:'本',emoji:'📖',hash:'#読書記録'},movie:{label:'映画',emoji:'🎬',hash:'#映画鑑賞'},museum:{label:'美術館',emoji:'🖼️',hash:'#美術館巡り'}};
+/* 上品な線画アイコン（絵文字の代わり） */
+const ICONS={
+  book:'<path d="M3 5.2c2.6-1 5.4-1 8 0v13.6c-2.6-1-5.4-1-8 0V5.2Z"/><path d="M11 5.2c2.6-1 5.4-1 8 0v13.6c-2.6-1-5.4-1-8 0"/><path d="M11 5.2v13.6"/>',
+  movie:'<rect x="2.8" y="5.4" width="16.4" height="13.2" rx="1.4"/><path d="M2.8 9.4h16.4M2.8 14.6h16.4"/><path d="M7 5.4v4M7 14.6v4M15 5.4v4M15 14.6v4"/>',
+  museum:'<path d="M2.6 8.6 11 3.6l8.4 5"/><path d="M4.6 8.8v9.4M9 8.8v9.4M13 8.8v9.4M17.4 8.8v9.4"/><path d="M2.6 18.4h16.8"/>'
+};
+function icon(t,size){return `<svg viewBox="0 0 22 22" width="${size||20}" height="${size||20}" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[t]}</svg>`}
+/* 運営側の公開設定（/api/config から取得） */
+let siteCfg={amazonTag:'',ai:false};
 let mem={};
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return mem[k]||d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}
 let items=lsGet('kansou_items',[]);
-let settings=Object.assign({amazonTag:'',rakutenAppId:'',rakutenAffiliateId:'',claudeApiKey:''},lsGet('kansou_settings',{}));
+let settings=lsGet('kansou_settings',{});
 function saveItems(){lsSet('kansou_items',items)}
 function saveSettings(){lsSet('kansou_settings',settings)}
 let ui={filter:'all',q:'',sort:'new',dtab:'memo'};
@@ -197,7 +211,7 @@ function renderList(){
   if(ui.q){const q=ui.q.toLowerCase();list=list.filter(it=>(it.title+it.creator+it.memo+(it.tags||[]).join()).toLowerCase().includes(q))}
   list.sort((a,b)=>ui.sort==='rating'?(b.rating-a.rating)||(b.date||'').localeCompare(a.date||''):(b.date||b.createdAt||'').localeCompare(a.date||a.createdAt||''));
   const tabs=[['all','すべて'],['book','本'],['movie','映画'],['museum','美術館']]
-    .map(([k,l])=>`<button class="tab ${ui.filter===k?'on':''}" onclick="ui.filter='${k}';renderList()">${l}</button>`).join('');
+    .map(([k,l])=>`<button class="tab ${ui.filter===k?'on':''}" onclick="ui.filter='${k}';renderList()">${k==='all'?'':icon(k,13)+' '}${l}</button>`).join('');
   $('#view').innerHTML=`
     <div class="tabs">${tabs}</div>
     <div class="toolbar">
@@ -210,7 +224,7 @@ function renderList(){
     ${list.length?list.map(cardHtml).join(''):`<div class="empty">まだ記録がありません。<br>＋ボタンから最初の一冊・一本・一展を。</div>`}`;
 }
 function cardHtml(it){
-  const visual=it.cover?`<img class="cover" src="${esc(it.cover)}" loading="lazy" alt="">`:`<div class="emoji-tile">${TYPES[it.type].emoji}</div>`;
+  const visual=it.cover?`<img class="cover" src="${esc(it.cover)}" loading="lazy" alt="">`:`<div class="emoji-tile">${icon(it.type,24)}</div>`;
   return `<div class="card" onclick="go('detail','${it.id}')">
     ${visual}
     <div style="flex:1;min-width:0">
@@ -231,16 +245,16 @@ function renderForm(id){
   <form onsubmit="return submitForm(event,'${id||''}')" autocomplete="off">
     <label>種類</label>
     <div class="typesel" id="typesel">
-      ${Object.entries(TYPES).map(([k,v])=>`<button type="button" data-t="${k}" class="${formType===k?'on':''}" onclick="setType('${k}')">${v.emoji} ${v.label}</button>`).join('')}
+      ${Object.entries(TYPES).map(([k,v])=>`<button type="button" data-t="${k}" class="${formType===k?'on':''}" onclick="setType('${k}')"><span class="ti">${icon(k,17)}</span>${v.label}</button>`).join('')}
     </div>
-    <label>タイトル候補 *</label>
+    <label>タイトル *</label>
     <div class="acwrap">
-      <input type="text" id="f_title" required value="${esc(it?.title)}" placeholder="入力するとタイトル候補が表示されます" oninput="onTitleInput()" onblur="setTimeout(hideAc,250)">
+      <input type="text" id="f_title" required value="${esc(it?.title)}" placeholder="入力すると候補が表示されます" oninput="onTitleInput()" onblur="setTimeout(hideAc,250)">
       <div id="aclist"></div>
     </div>
     <input type="hidden" id="f_cover" value="${esc(it?.cover)}">
     <div id="coverprev">${it?.cover?coverPrevHtml(it.cover):''}</div>
-    <label id="creatorlabel">${creatorLabel(formType)}候補</label>
+    <label id="creatorlabel">${creatorLabel(formType)}</label>
     <div class="acwrap">
       <input type="text" id="f_creator" value="${esc(it?.creator)}" placeholder="タップするとタイトルを参考に候補を表示" onfocus="onCreatorFocus()" oninput="hideAcc()" onblur="setTimeout(hideAcc,250)">
       <div id="aclist2"></div>
@@ -259,7 +273,7 @@ function renderForm(id){
   window._star=it?.rating||3;paintStars();
 }
 function creatorLabel(t){return t==='book'?'著者名':t==='movie'?'監督・出演':'美術館・会場'}
-function setType(t){formType=t;document.querySelectorAll('#typesel button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$('#creatorlabel').textContent=creatorLabel(t)+'候補'}
+function setType(t){formType=t;document.querySelectorAll('#typesel button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$('#creatorlabel').textContent=creatorLabel(t)}
 function setStar(n){window._star=n;paintStars()}
 function paintStars(){document.querySelectorAll('#starinput span').forEach(s=>s.classList.toggle('lit',+s.dataset.n<=window._star))}
 function coverPrevHtml(u){return `<div class="coverprev"><img src="${esc(u)}" alt="カバー"><span class="rm" onclick="clearCover()">カバーを外す</span></div>`}
@@ -358,7 +372,7 @@ function renderDetail(id){
   <div class="dhead">
     ${it.cover?`<img class="dcover" src="${esc(it.cover)}" alt="">`:''}
     <div style="flex:1;min-width:0">
-      <div class="meta">${TYPES[it.type].label}　${fmtDate(it.date)}</div>
+      <div class="meta"><span class="tico">${icon(it.type,14)}</span>${TYPES[it.type].label}　${fmtDate(it.date)}</div>
       <h2>${esc(it.title)}</h2>
       <div class="creator">${esc(it.creator)}</div>
       <div class="stars" style="font-size:.95rem;margin-top:6px">${stars(it.rating||0)}</div>
@@ -391,12 +405,31 @@ function memoPanel(it){
   </div>`;
 }
 /* ---- Wikipedia ---- */
+function wnorm(s){return (s||'').toLowerCase()
+  .replace(/[　\s・,.。、「」『』（）()＝=!！?？:：;；\-—–ー~〜]/g,'')
+  .replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+  .replace(/no\.?(\d)/g,'no$1')}
+function wRelevant(title,q){
+  const a=wnorm(title),b=wnorm(q);
+  if(!a||!b)return false;
+  if(a.includes(b)||b.includes(a))return true;
+  let n=0;while(n<a.length&&n<b.length&&a[n]===b[n])n++;
+  return n>=Math.min(4,Math.max(3,Math.floor(b.length*0.7)));
+}
+async function wikiSearch(q,mode){
+  const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(mode==='intitle'?'intitle:'+q:q)}&srlimit=5&format=json&origin=*`).then(r=>r.json());
+  return d.query?.search||[];
+}
 async function loadWiki(it){
   const q=it.wikiTitle||it.title;const p=$('#dpanel');
   try{
-    const s=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&srlimit=1&format=json&origin=*`).then(r=>r.json());
-    const hit=s.query?.search?.[0];
-    if(!hit){p.innerHTML=`<div class="panel"><div class="note">「${esc(q)}」のWikipedia記事が見つかりませんでした。編集画面の「Wikipedia検索名」で正式名称を指定してみてください。</div></div>`;return}
+    let hits=await wikiSearch(q,'intitle');
+    let hit=hits.find(h=>wRelevant(h.title,q));
+    if(!hit){hits=await wikiSearch(q);hit=hits.find(h=>wRelevant(h.title,q))}
+    if(!hit){p.innerHTML=`<div class="panel">
+      <div class="note">「${esc(q)}」に一致するWikipedia記事は見つかりませんでした。無関係な記事を表示しないよう、確実に一致するものだけを出しています。</div>
+      <div class="linklist" style="margin-top:8px"><a href="https://ja.wikipedia.org/w/index.php?search=${enc(q)}" target="_blank" rel="noopener">Wikipediaで検索する</a></div>
+      <div class="note">正式名称が違う場合は、編集画面の「Wikipedia検索名」で指定できます。</div></div>`;return}
     const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${hit.pageid}&prop=extracts|pageimages&exintro&explaintext&piprop=thumbnail&pithumbsize=600&format=json&origin=*`).then(r=>r.json());
     const pg=d.query.pages[hit.pageid];
     p.innerHTML=`<div class="panel">
@@ -419,28 +452,44 @@ function reviewPanel(it){
   const links=[['𝕏 でいいねが多い感想を見る',xFav],...perType[it.type]];
   return `<div class="panel">
     <div id="rkrev"></div>
+    <h4>評価の高い版・関連商品のレビュー</h4>
+    <div class="prodscroll" id="rkrevlist"><div class="spin">${rkKey()?'レビューを集計中…':'楽天連携の準備中です'}</div></div>
+    <div class="note">レビュー数の多い順に上位5件を表示し、スクロールで最大30件まで見られます。タップすると楽天のレビュー本文が読めます。</div>
+    <hr class="sep">
     <h4>みんなの感想・口コミ</h4>
     <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
-    <div class="note">※ 各口コミサイトはレビュー本文の取得APIを公開していないため、𝕏はいいね50以上に絞った検索、各サイトは作品ページへの直リンクです。楽天のレビュー実データは上部に表示されます。</div>
+    <div class="note">※ 各口コミサイトはレビュー本文の取得APIを公開していないため、𝕏はいいね50以上に絞った検索、各サイトは作品ページへの直リンクです。</div>
   </div>`;
 }
 async function loadRkReview(it){
   if(!rkKey())return;
   try{
-    const d=await rkFetch(it.type,it.title,1);
-    const i=(d.Items||[])[0];if(!i)return;
-    const n=rkNorm(it.type,i);
-    if(!n.revc)return;
-    const el=$('#rkrev');if(!el)return;
-    el.innerHTML=`<div class="revsum">
-      <div class="big">★${(+n.rev).toFixed(2)}</div>
-      <div class="cnt">楽天レビュー ${n.revc}件<br><a href="${n.url}" target="_blank" rel="noopener" style="color:var(--gold)">レビューを読む →</a></div>
+    const d=await rkFetch(it.type,it.title,30);
+    const all=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>p.title);
+    const rev=all.filter(p=>+p.revc>0).sort((a,b)=>(+b.revc)-(+a.revc));
+    const top=rev[0];
+    const sum=$('#rkrev');
+    if(sum&&top)sum.innerHTML=`<div class="revsum">
+      <div class="big">★${(+top.rev).toFixed(2)}</div>
+      <div class="cnt">楽天レビュー ${top.revc}件の平均評価<br><a href="${top.url}" target="_blank" rel="noopener" style="color:var(--gold)">レビューを読む →</a></div>
     </div>`;
-  }catch(e){}
+    const el=$('#rkrevlist');if(!el)return;
+    if(!rev.length){el.innerHTML=`<div class="spin">レビューのある商品が見つかりませんでした</div>`;return}
+    el.innerHTML=rev.map(p=>`
+      <a class="prod" href="${p.url}" target="_blank" rel="noopener">
+        ${p.img?`<img src="${bigImg(p.img)}" loading="lazy" alt="">`:'<div style="width:52px"></div>'}
+        <div style="flex:1;min-width:0">
+          <div class="pt">${esc(p.title)}</div>
+          <div class="pa">${esc(p.author)}</div>
+          <div class="pp"><span style="color:var(--gold)">★${(+p.rev).toFixed(2)}</span><span class="pr" style="color:var(--sub)">レビュー${p.revc}件</span></div>
+        </div></a>`).join('');
+  }catch(e){
+    const el=$('#rkrevlist');if(el)el.innerHTML=`<div class="spin">楽天連携が未設定のため表示できません</div>`;
+  }
 }
 /* ---- products / affiliate ---- */
 function linksPanel(it){
-  const t=enc(it.title);const tag=settings.amazonTag?`&tag=${enc(settings.amazonTag)}`:'';
+  const t=enc(it.title);const tag=siteCfg.amazonTag?`&tag=${enc(siteCfg.amazonTag)}`:'';
   const az=it.type==='book'
     ?[['Amazonで本を探す',`https://www.amazon.co.jp/s?k=${t}&i=stripbooks${tag}`]]
     :it.type==='movie'
@@ -496,7 +545,7 @@ function drawAiModal(){
         <button class="chip ${ai.mode==='note'?'on':''}" onclick="ai.mode='note';drawAiModal();runFormat()">note記事用（長文）</button>
       </div>
       <textarea id="aitext">${esc(ai.text)}</textarea>
-      <div class="note" id="ainote">${settings.claudeApiKey?'Claude APIで整形しています。':'テンプレート整形です。設定画面でClaude APIキーを登録すると、より自然なAI整形ができます。'}</div>
+      <div class="note" id="ainote">${siteCfg.ai?'AIが感想メモを投稿用に整えています。':'感想メモを定型で整えています。'}</div>
       <div class="btnrow">
         ${ai.mode==='x'
           ?`<button class="btn primary" onclick="sendToX()">𝕏 に投稿</button>`
@@ -508,9 +557,9 @@ function drawAiModal(){
 function closeModal(){$('#modalroot').innerHTML=''}
 async function runFormat(){
   const it=items.find(x=>x.id===ai.itemId);
-  if(settings.claudeApiKey){
-    const ta=$('#aitext');if(ta)ta.value='AIが文章を整形中…';
-    try{ai.text=await claudeFormat(it,ai.mode)}catch(e){ai.text=templateFormat(it,ai.mode);const n=$('#ainote');if(n)n.textContent='API呼び出しに失敗したため、テンプレート整形を表示しています（キーをご確認ください）。'}
+  if(siteCfg.ai){
+    const ta=$('#aitext');if(ta)ta.value='AIが文章を整えています…';
+    try{ai.text=await aiFormat(it,ai.mode)}catch(e){ai.text=templateFormat(it,ai.mode);const n=$('#ainote');if(n)n.textContent='AI整形が利用できなかったため、定型の文章を表示しています。'}
   }else{ai.text=templateFormat(it,ai.mode)}
   const ta=$('#aitext');if(ta)ta.value=ai.text;
 }
@@ -524,16 +573,12 @@ function templateFormat(it,mode){
     (it.memo?`## 感想\n\n${it.memo}\n\n`:'')+
     `${(it.tags||[]).map(t=>'#'+t).join(' ')}\n${T.hash} #MyShelf`;
 }
-async function claudeFormat(it,mode){
-  const inst=mode==='x'
-    ?'以下の感想メモを、X（Twitter）に投稿する自然で魅力的な日本語の投稿文（140字以内、ハッシュタグ1〜2個含む）に整形してください。投稿文のみを出力してください。'
-    :'以下の感想メモを、noteに投稿するエッセイ風の記事（見出し付きmarkdown、400〜800字）に整形してください。記事本文のみを出力してください。';
-  const body={model:'claude-sonnet-4-5',max_tokens:1024,messages:[{role:'user',content:`${inst}\n\n種類:${TYPES[it.type].label}\nタイトル:${it.title}\n作者/会場:${it.creator}\n評価:${it.rating}/5\n印象フレーズ:${it.quotes}\n感想メモ:${it.memo}`}]};
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-    headers:{'content-type':'application/json','x-api-key':settings.claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify(body)});
-  if(!r.ok)throw new Error('api');
-  const j=await r.json();return j.content[0].text;
+async function aiFormat(it,mode){
+  const r=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.text){if(r.status===503)siteCfg.ai=false;throw new Error(j.error||'ai')}
+  return j.text;
 }
 function sendToX(){let t=$('#aitext').value;open(`https://twitter.com/intent/tweet?text=${enc(t)}`,'_blank')}
 async function sendToNote(){
@@ -547,31 +592,19 @@ function renderSettings(){
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
   <div class="panel">
-    <h4>連携設定</h4>
-    <div class="note" style="margin:0 0 6px">楽天連携（商品検索・アフィリエイト）はサーバー側の中継所で設定済みのため、アプリ側での入力は不要です。</div>
-    <form onsubmit="return saveSettingsForm(event)">
-      <label>Amazonアソシエイトタグ</label>
-      <input type="text" id="s_amazon" value="${esc(settings.amazonTag)}" placeholder="例: yourname-22">
-      <label>Claude APIキー（任意・AI整形の品質向上）</label>
-      <input type="password" id="s_claude" value="${esc(settings.claudeApiKey)}" placeholder="sk-ant-...">
-      <div class="note">すべて端末内にのみ保存されます。</div>
-      <div class="btnrow"><button class="btn primary" type="submit">保存</button></div>
-    </form>
-  </div>
-  <div class="panel">
     <h4>データ管理（${items.length}件）</h4>
     <div class="btnrow" style="margin-top:8px">
-      <button class="btn small ghost" onclick="exportJson()">📤 エクスポート</button>
-      <button class="btn small ghost" onclick="$('#importfile').click()">📥 インポート</button>
+      <button class="btn small ghost" onclick="exportJson()">エクスポート</button>
+      <button class="btn small ghost" onclick="$('#importfile').click()">インポート</button>
     </div>
     <input type="file" id="importfile" accept=".json" style="display:none" onchange="importJson(this)">
-    <div class="note">機種変更時はエクスポートしたJSONを新しい端末でインポートしてください。</div>
+    <div class="note">記録はこの端末内に保存されています。機種変更のときは、エクスポートしたJSONを新しい端末でインポートしてください。</div>
+  </div>
+  <div class="panel">
+    <h4>MyShelfについて</h4>
+    <div class="note" style="margin:0">読んだ本・観た映画・訪れた美術館の記録帳です。作品情報はWikipedia、関連商品は楽天のデータを利用しています。商品リンクにはアフィリエイトを含みます。</div>
   </div>`;
 }
-function saveSettingsForm(e){e.preventDefault();
-  settings.amazonTag=$('#s_amazon').value.trim();
-  settings.claudeApiKey=$('#s_claude').value.trim();
-  saveSettings();toast('設定を保存しました');return false}
 function exportJson(){
   const blob=new Blob([JSON.stringify({items,exportedAt:new Date().toISOString()},null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`myshelf-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
@@ -590,6 +623,7 @@ function importJson(inp){
 }
 /* ============ init ============ */
 renderList();
+fetch('/api/config').then(r=>r.json()).then(c=>{siteCfg=Object.assign(siteCfg,c||{});if(c&&c.rakuten===false)rkState='unconfigured'}).catch(()=>{});
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
