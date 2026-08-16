@@ -579,7 +579,6 @@ function reviewPanel(it){
     <h4>各サイトの口コミ</h4>
     <div id="rkrev"></div>
     <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
-    <div class="note">※ 各サイトはレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。数値評価を取得できるのは楽天のみです。</div>
   </div>
   <div class="panel">
     <h4>𝕏 のみんなの感想</h4>
@@ -587,7 +586,7 @@ function reviewPanel(it){
       <button class="btn small accent" onclick="window.open('${xFav}','_blank')">いいねが多い感想を探す →</button>
     </div>
     <div class="xadd">
-      <textarea id="xurl" rows="1" placeholder="投稿のURLを貼り付け（複数まとめてOK）"
+      <textarea id="xurl" rows="1" placeholder="気に入った投稿を登録しておく（URL貼付）"
         onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addXPost()}"></textarea>
       <div class="btnrow" style="margin-top:10px">
         <button class="btn small ghost" onclick="pasteXPost()">貼り付け</button>
