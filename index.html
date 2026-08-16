@@ -162,10 +162,13 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .xcount{font-size:.72rem;color:var(--sub);text-align:right;margin-top:6px;letter-spacing:.04em}
 .xcount.near{color:var(--gold)}
 .xcount.over{color:var(--danger)}
-.sharegrid{display:flex;flex-direction:column;gap:10px}
-.sharegrid .btn{flex:1 1 auto;padding:13px 16px;font-size:.8rem}
-.panel.manage{background:transparent;box-shadow:none;border-style:dashed}
-.panel.manage h4{color:var(--sub)}
+.sharegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sharegrid .btn{padding:13px 6px;font-size:.74rem;letter-spacing:.06em;white-space:nowrap}
+.sharegrid .btn:first-child{grid-column:1 / -1;font-size:.8rem;letter-spacing:.14em}
+.pactions{display:flex;gap:16px;justify-content:flex-end;margin:-6px -4px 10px}
+.linkbtn{background:none;border:none;color:var(--sub);font-size:.7rem;letter-spacing:.12em;cursor:pointer;padding:3px 2px;font-family:var(--sans);transition:color .15s}
+.linkbtn:hover{color:var(--ink)}
+.linkbtn.danger:hover{color:var(--danger)}
 .selrow{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:.84rem}
 .selrow:last-child{border-bottom:none}
 .selrow input{accent-color:var(--gold);width:16px;height:16px;flex-shrink:0}
@@ -466,6 +469,10 @@ function renderDetail(id){
 }
 function memoPanel(it){
   return `<div class="panel">
+    <div class="pactions">
+      <button class="linkbtn" onclick="go('form','${it.id}')">編集</button>
+      <button class="linkbtn danger" onclick="delItem('${it.id}')">削除</button>
+    </div>
     ${it.quotes?`<h4>印象に残ったフレーズ</h4><div class="quote">${esc(it.quotes)}</div>`:''}
     <h4>感想メモ</h4>
     <div class="memo-body">${it.memo?esc(it.memo):'<span style="color:var(--sub)">（未記入）</span>'}</div>
@@ -490,13 +497,6 @@ function memoPanel(it){
       </div>
     </div>
     <div id="mylist" style="margin-top:16px">${(it.myPosts||[]).length?(it.myPosts||[]).map((u,i)=>myEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
-  </div>
-  <div class="panel manage">
-    <h4>この記録の管理</h4>
-    <div class="btnrow" style="margin-top:0">
-      <button class="btn small ghost" onclick="go('form','${it.id}')">編集する</button>
-      <button class="btn small danger" onclick="delItem('${it.id}')">削除する</button>
-    </div>
   </div>`;
 }
 /* ---- 自分の投稿（𝕏 / note 両対応） ---- */
