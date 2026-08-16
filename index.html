@@ -160,8 +160,10 @@ const ICONS={
   museum:'<path d="M2.6 8.6 11 3.6l8.4 5"/><path d="M4.6 8.8v9.4M9 8.8v9.4M13 8.8v9.4M17.4 8.8v9.4"/><path d="M2.6 18.4h16.8"/>'
 };
 function icon(t,size){return `<svg viewBox="0 0 22 22" width="${size||20}" height="${size||20}" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[t]}</svg>`}
-/* 運営側の公開設定（/api/config から取得） */
+/* 運営側の公開設定（中継所 /api/config から取得） */
 let siteCfg={amazonTag:'',ai:false};
+/* 中継所（バックエンド）のURL。到達できない場合は同一オリジンの /api にフォールバック */
+let API_BASE='https://myshelf-backend.vercel.app';
 let mem={};
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return mem[k]||d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}
@@ -184,7 +186,7 @@ function rkKey(){return rkState!=='unconfigured'}
 function rkUrl(type,q,hits){
   const p=new URLSearchParams({src:type,hits:String(hits)});
   if(type==='museum')p.set('keyword',q+' 図録');else p.set('title',q);
-  return '/api/rakuten?'+p.toString();
+  return API_BASE+'/api/rakuten?'+p.toString();
 }
 async function rkFetch(type,q,hits){
   const r=await fetch(rkUrl(type,q,hits));
@@ -574,7 +576,7 @@ function templateFormat(it,mode){
     `${(it.tags||[]).map(t=>'#'+t).join(' ')}\n${T.hash} #MyShelf`;
 }
 async function aiFormat(it,mode){
-  const r=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},
+  const r=await fetch(API_BASE+'/api/ai',{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||!j.text){if(r.status===503)siteCfg.ai=false;throw new Error(j.error||'ai')}
@@ -623,7 +625,19 @@ function importJson(inp){
 }
 /* ============ init ============ */
 renderList();
-fetch('/api/config').then(r=>r.json()).then(c=>{siteCfg=Object.assign(siteCfg,c||{});if(c&&c.rakuten===false)rkState='unconfigured'}).catch(()=>{});
+(async function loadCfg(){
+  for(const base of [API_BASE,'']){
+    try{
+      const r=await fetch(base+'/api/config');
+      if(!r.ok)continue;
+      const c=await r.json();
+      API_BASE=base;siteCfg=Object.assign(siteCfg,c||{});
+      if(c&&c.rakuten===false)rkState='unconfigured';
+      return;
+    }catch(e){}
+  }
+  rkState='unconfigured';
+})();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
