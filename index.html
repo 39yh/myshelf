@@ -225,6 +225,21 @@ let settings=lsGet('kansou_settings',{});
 function saveItems(){lsSet('kansou_items',items)}
 function saveSettings(){lsSet('kansou_settings',settings)}
 let ui={filter:'all',q:'',sort:'new',dtab:'memo'};
+/* 初回だけ入るサンプル記事（削除したら復活しない） */
+function seedSample(){
+  if(lsGet('kansou_seeded',false))return;
+  lsSet('kansou_seeded',true);
+  if(items.length)return;
+  items.unshift({
+    id:'sample-hakone', createdAt:Date.now(), updatedAt:Date.now(),
+    type:'book', title:'サンプル｜俺達の箱根駅伝', creator:'池井戸潤',
+    date:new Date().toISOString().slice(0,10), rating:4,
+    quotes:'タスキがつながる瞬間の描写。ここだけ何度も読み返した。',
+    memo:'箱根駅伝って、走っている人だけの物語じゃないんだ、と気づかされた一冊。\n予選会で敗れた大学から集まった寄せ集めのチームが、一本のタスキでだんだんひとつになっていく過程がとにかく熱い。走る側と、それを中継するテレビ局側の両方から描かれるので、毎年なんとなく眺めていた正月の景色が急に立体的になった。\n区間ごとに主役が入れ替わるから、誰か一人というよりチーム全体を応援している気持ちで読み終えた。次の正月が待ち遠しい。\n\n※これはサンプルです。感想は右上の「⋯」から編集削除できます。',
+    cover:'', tags:['駅伝','スポーツ小説','正月に読みたい'], wikiTitle:'俺たちの箱根駅伝'
+  });
+  saveItems();
+}
 /* ============ utils ============ */
 const $=s=>document.querySelector(s);
 function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -1325,7 +1340,7 @@ function myPubEmbed(url){
   return id?`<iframe class="note-embed" src="https://note.com/embed/notes/${id}" height="400" loading="lazy" title="note記事"></iframe>`:'';
 }
 /* ============ init ============ */
-if(location.hash.startsWith('#s=')){bootViewer(location.hash.slice(3))}else{renderList()}
+if(location.hash.startsWith('#s=')){bootViewer(location.hash.slice(3))}else{seedSample();renderList()}
 addEventListener('click',closeItemMenu);
 addEventListener('keydown',e=>{if(e.key==='Escape')closeItemMenu()});
 addEventListener('hashchange',()=>{
