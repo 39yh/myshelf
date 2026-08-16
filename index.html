@@ -367,6 +367,7 @@ function delItem(id){if(!confirm('この記録を削除しますか？'))return;
 /* ============ detail ============ */
 function renderDetail(id){
   const it=items.find(x=>x.id===id);if(!it)return go('list');
+  window._detailId=id;
   const tabs=[['memo','感想'],['wiki','Wikipedia'],['review','口コミ'],['links','関連商品']]
     .map(([k,l])=>`<div class="dtab ${ui.dtab===k?'on':''}" onclick="ui.dtab='${k}';renderDetail('${id}')">${l}</div>`).join('');
   $('#view').innerHTML=`
@@ -423,24 +424,73 @@ async function wikiSearch(q,mode){
   return d.query?.search||[];
 }
 async function loadWiki(it){
-  const q=it.wikiTitle||it.title;const p=$('#dpanel');
+  const p=$('#dpanel');
   try{
-    let hits=await wikiSearch(q,'intitle');
-    let hit=hits.find(h=>wRelevant(h.title,q));
-    if(!hit){hits=await wikiSearch(q);hit=hits.find(h=>wRelevant(h.title,q))}
-    if(!hit){p.innerHTML=`<div class="panel">
-      <div class="note">「${esc(q)}」に一致するWikipedia記事は見つかりませんでした。無関係な記事を表示しないよう、確実に一致するものだけを出しています。</div>
-      <div class="linklist" style="margin-top:8px"><a href="https://ja.wikipedia.org/w/index.php?search=${enc(q)}" target="_blank" rel="noopener">Wikipediaで検索する</a></div>
-      <div class="note">正式名称が違う場合は、編集画面の「Wikipedia検索名」で指定できます。</div></div>`;return}
-    const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${hit.pageid}&prop=extracts|pageimages&exintro&explaintext&piprop=thumbnail&pithumbsize=600&format=json&origin=*`).then(r=>r.json());
-    const pg=d.query.pages[hit.pageid];
+    let pageid=it.wikiPageId;
+    if(!pageid){
+      const q=it.wikiTitle||it.title;
+      let hits=await wikiSearch(q,'intitle');
+      let hit=hits.find(h=>wRelevant(h.title,q));
+      if(!hit){hits=await wikiSearch(q);hit=hits.find(h=>wRelevant(h.title,q))}
+      if(!hit){p.innerHTML=wikiPickerHtml(q,`「${esc(q)}」に一致するWikipedia記事は見つかりませんでした。無関係な記事を表示しないよう、確実に一致するものだけを出しています。下の欄から正しい記事を選べます。`);wikiPick();return}
+      pageid=hit.pageid;
+    }
+    const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${pageid}&prop=extracts|pageimages&exintro&explaintext&piprop=thumbnail&pithumbsize=600&format=json&origin=*`).then(r=>r.json());
+    const pg=d.query.pages[pageid];
+    if(!pg||pg.missing!==undefined){p.innerHTML=wikiPickerHtml(it.wikiTitle||it.title,'指定されていた記事が見つかりませんでした。もう一度選び直してください。');wikiPick();return}
     p.innerHTML=`<div class="panel">
       ${pg.thumbnail?`<img class="wikiimg" src="${pg.thumbnail.source}" alt="">`:''}
       <h4>${esc(pg.title)} — Wikipedia</h4>
       <div class="memo-body" style="font-size:.88rem">${esc((pg.extract||'').slice(0,800))}${(pg.extract||'').length>800?'…':''}</div>
-      <div class="linklist" style="margin-top:10px"><a href="https://ja.wikipedia.org/?curid=${hit.pageid}" target="_blank" rel="noopener">記事全文を読む</a></div>
+      <div class="linklist" style="margin-top:10px"><a href="https://ja.wikipedia.org/?curid=${pageid}" target="_blank" rel="noopener">記事全文を読む</a></div>
+      <div class="btnrow" style="margin-top:14px"><button class="btn small ghost" onclick="openWikiPicker()">別の記事を選ぶ</button></div>
     </div>`;
   }catch(e){p.innerHTML=`<div class="panel"><div class="note">Wikipediaに接続できませんでした（オフラインの可能性）。</div></div>`}
+}
+/* ---- Wikipedia 記事ピッカー ---- */
+function wikiPickerHtml(q,msg){
+  return `<div class="panel">
+    <h4>Wikipedia記事を選ぶ</h4>
+    <div class="note" style="margin:0 0 12px">${msg||''}</div>
+    <input type="text" id="wkq" value="${esc(q)}" placeholder="記事名で検索"
+      style="width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.95rem;background:transparent;font-family:var(--sans)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();wikiPick()}">
+    <div class="btnrow" style="margin-top:14px">
+      <button class="btn small ghost" onclick="wikiPick()">この名前で検索</button>
+      <button class="btn small ghost" onclick="window.open('https://ja.wikipedia.org/w/index.php?search='+encodeURIComponent(($('#wkq')||{}).value||''),'_blank')">Wikipediaで開く</button>
+    </div>
+    <div id="wkres" style="margin-top:14px"></div>
+  </div>`;
+}
+function openWikiPicker(){
+  const it=items.find(x=>x.id===window._detailId);if(!it)return;
+  $('#dpanel').innerHTML=wikiPickerHtml(it.wikiTitle||it.title,'この記録に紐づけるWikipedia記事を選び直せます。');
+  wikiPick();
+}
+async function wikiPick(){
+  const el=$('#wkres');const box=$('#wkq');if(!el||!box)return;
+  const q=box.value.trim();if(q.length<1){el.innerHTML='';return}
+  el.innerHTML=`<div class="spin">検索中…</div>`;
+  try{
+    const [a,b]=await Promise.all([wikiSearch(q,'intitle').catch(()=>[]),wikiSearch(q).catch(()=>[])]);
+    const seen=new Set();const list=[...a,...b].filter(h=>{if(seen.has(h.pageid))return false;seen.add(h.pageid);return true}).slice(0,10);
+    if(!list.length){el.innerHTML=`<div class="spin">候補が見つかりませんでした</div>`;return}
+    window._wk=list;
+    el.innerHTML=`<div class="prodscroll">${list.map((h,i)=>
+      `<a class="prod" href="javascript:void(0)" onclick="wikiChoose(${i})" style="align-items:flex-start">
+         <div style="flex:1;min-width:0">
+           <div class="pt" style="font-weight:500">${esc(h.title)}</div>
+           <div class="pa">${esc(String(h.snippet||'').replace(/<[^>]*>/g,'').slice(0,60))}</div>
+         </div></a>`).join('')}</div>
+      <div class="note">タップするとこの記録に紐づけて保存します。</div>`;
+  }catch(e){el.innerHTML=`<div class="spin">検索できませんでした</div>`}
+}
+function wikiChoose(i){
+  const h=(window._wk||[])[i];const it=items.find(x=>x.id===window._detailId);
+  if(!h||!it)return;
+  it.wikiTitle=h.title;it.wikiPageId=h.pageid;it.updatedAt=Date.now();
+  saveItems();toast('Wikipedia記事を設定しました');
+  renderDetail(it.id);
 }
 /* ---- reviews ---- */
 function reviewPanel(it){
