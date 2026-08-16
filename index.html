@@ -881,6 +881,15 @@ function renderSettings(){
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
   <div class="panel">
+    <h4>MyShelfをシェア</h4>
+    <div class="note" style="margin:0 0 14px">本や映画の記録が好きな人に、このアプリを教えられます。</div>
+    <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
+      ${navigator.share?`<button class="btn small accent" onclick="shareApp()">シェアする</button>`:''}
+      <button class="btn small ghost" onclick="shareAppX()">𝕏 でシェア</button>
+      <button class="btn small ghost" onclick="copyShareLink()">リンクをコピー</button>
+    </div>
+  </div>
+  <div class="panel">
     <h4>データ管理（${items.length}件）</h4>
     <div class="btnrow" style="margin-top:8px">
       <button class="btn small ghost" onclick="exportJson()">エクスポート</button>
@@ -909,6 +918,24 @@ function importJson(inp){
     saveItems();toast(`インポート完了（現在${items.length}件）`);renderSettings();
   }catch(e){toast('読み込めないファイルです')}};
   rd.readAsText(f);
+}
+/* ============ アプリのシェア ============ */
+function shareUrl(){return location.origin+location.pathname.replace(/index\.html$/,'')}
+function shareText(){return 'MyShelf — 読んだ本・観た映画・訪れた美術館の感想を残せるノート'}
+async function shareApp(){
+  try{
+    await navigator.share({title:'MyShelf',text:shareText(),url:shareUrl()});
+  }catch(e){
+    if(e&&e.name==='AbortError')return;
+    copyShareLink();
+  }
+}
+function shareAppX(){
+  open(`https://twitter.com/intent/tweet?text=${enc(shareText()+'\n'+shareUrl())}`,'_blank');
+}
+async function copyShareLink(){
+  try{await navigator.clipboard.writeText(shareUrl());toast('リンクをコピーしました')}
+  catch(e){toast('コピーできませんでした')}
 }
 /* ============ init ============ */
 renderList();
