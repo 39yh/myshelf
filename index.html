@@ -382,7 +382,7 @@ function delItem(id){if(!confirm('この記録を削除しますか？'))return;
 function renderDetail(id){
   const it=items.find(x=>x.id===id);if(!it)return go('list');
   window._detailId=id;
-  const tabs=[['memo','感想'],['review','口コミ'],['links','関連商品']]
+  const tabs=[['memo','感想'],['wiki','Wikipedia'],['review','口コミ'],['links','関連商品']]
     .map(([k,l])=>`<div class="dtab ${ui.dtab===k?'on':''}" onclick="ui.dtab='${k}';renderDetail('${id}')">${l}</div>`).join('');
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
@@ -398,7 +398,8 @@ function renderDetail(id){
   <div class="dtabs">${tabs}</div>
   <div id="dpanel"></div>`;
   const p=$('#dpanel');
-  if(ui.dtab==='memo'){p.innerHTML=memoPanel(it);loadWiki(it)}
+  if(ui.dtab==='memo'){p.innerHTML=memoPanel(it);if((it.myPosts||[]).some(xValid))loadXWidgets('#mylist')}
+  else if(ui.dtab==='wiki'){p.innerHTML=`<div id="wikibox"><div class="panel"><div class="spin">Wikipediaを検索中…</div></div></div>`;loadWiki(it)}
   else if(ui.dtab==='review'){p.innerHTML=reviewPanel(it);loadRkReview(it);if((it.xPosts||[]).length)loadXWidgets()}
   else{p.innerHTML=linksPanel(it);loadRkProducts(it)}
 }
@@ -419,7 +420,58 @@ function memoPanel(it){
       <button class="btn small danger" onclick="delItem('${it.id}')">削除</button>
     </div>
   </div>
-  <div id="wikibox"><div class="panel"><div class="spin">Wikipediaを検索中…</div></div></div>`;
+  <div class="panel">
+    <h4>自分の投稿</h4>
+    <div class="xadd">
+      <textarea id="myurl" rows="2" placeholder="投稿した𝕏・noteのURLを貼り付け（複数まとめてOK）"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addMyPost()}"></textarea>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="btn small ghost" onclick="pasteMyPost()">貼り付け</button>
+        <button class="btn small ghost" onclick="addMyPost()">追加</button>
+      </div>
+    </div>
+    <div class="note" style="margin-top:8px">𝕏やnoteに投稿したら、そのURLを貼っておくと、この記録と一緒に読み返せます。</div>
+    <div id="mylist" style="margin-top:16px">${(it.myPosts||[]).length?(it.myPosts||[]).map((u,i)=>myEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
+  </div>`;
+}
+/* ---- 自分の投稿（𝕏 / note 両対応） ---- */
+function myEmbedHtml(url,i){
+  if(xValid(url))return `<div class="xpost">
+    <button class="xdel" onclick="delMyPost(${i})" aria-label="削除">×</button>
+    <blockquote class="twitter-tweet" data-lang="ja" data-dnt="true"><a href="${esc(url)}"></a></blockquote>
+  </div>`;
+  const id=noteId(url);
+  if(id)return `<div class="xpost">
+    <button class="xdel" onclick="delMyPost(${i})" aria-label="削除">×</button>
+    <iframe class="note-embed" src="https://note.com/embed/notes/${id}" height="400" loading="lazy" title="note記事"></iframe>
+  </div>`;
+  return '';
+}
+function addMyPost(text){
+  const box=$('#myurl');
+  const src=text!==undefined?text:(box?box.value:'');
+  const urls=[...xExtract(src),...noteExtract(src)];
+  if(!urls.length){toast('𝕏・noteのURLが見つかりません');return}
+  const it=items.find(x=>x.id===window._detailId);if(!it)return;
+  it.myPosts=it.myPosts||[];
+  let added=0;
+  urls.forEach(u=>{if(!it.myPosts.includes(u)){it.myPosts.push(u);added++}});
+  if(!added){toast('すでに追加されています');return}
+  it.updatedAt=Date.now();saveItems();
+  toast(added>1?`${added}件を追加しました`:'投稿を追加しました');
+  renderDetail(it.id);
+}
+async function pasteMyPost(){
+  try{
+    const t=await navigator.clipboard.readText();
+    const urls=[...xExtract(t),...noteExtract(t)];
+    if(!urls.length){const b=$('#myurl');if(b)b.value=t;toast('𝕏・noteのURLが見つかりません');return}
+    addMyPost(t);
+  }catch(e){toast('貼り付けできませんでした。欄に直接貼ってください')}
+}
+function delMyPost(i){
+  const it=items.find(x=>x.id===window._detailId);if(!it||!it.myPosts)return;
+  it.myPosts.splice(i,1);it.updatedAt=Date.now();saveItems();renderDetail(it.id);
 }
 /* ---- Wikipedia ---- */
 function wnorm(s){return (s||'').toLowerCase()
@@ -624,8 +676,9 @@ function xEmbedHtml(url,i){
   </div>`;
 }
 function xValid(u){return /^https?:\/\/(twitter\.com|x\.com)\/[^\/]+\/status\/\d+/.test(u)}
-function loadXWidgets(){
-  const render=()=>{if(window.twttr&&twttr.widgets)twttr.widgets.load($('#xlist'))};
+function loadXWidgets(sel){
+  const target=sel||'#xlist';
+  const render=()=>{if(window.twttr&&twttr.widgets)twttr.widgets.load($(target)||undefined)};
   if(window.twttr&&window.twttr.widgets)return render();
   if(document.getElementById('twscript'))return setTimeout(render,900);
   const s=document.createElement('script');
@@ -732,7 +785,7 @@ function closeModal(){$('#modalroot').innerHTML=''}
 async function runFormat(){
   const it=items.find(x=>x.id===ai.itemId);
   if(siteCfg.ai){
-    const ta=$('#aitext');if(ta)ta.value='AIが文章を整えています…';
+    const ta=$('#aitext');if(ta)ta.value=ai.mode==='note'?'作品情報と口コミを集めてAIが記事を書いています…':'AIが文章を整えています…';
     try{ai.text=await aiFormat(it,ai.mode)}catch(e){ai.text=templateFormat(it,ai.mode);const n=$('#ainote');if(n)n.textContent='AI整形が利用できなかったため、定型の文章を表示しています。'}
   }else{ai.text=templateFormat(it,ai.mode)}
   const ta=$('#aitext');if(ta)ta.value=ai.text;
@@ -747,9 +800,44 @@ function templateFormat(it,mode){
     (it.memo?`## 感想\n\n${it.memo}\n\n`:'')+
     `${(it.tags||[]).map(t=>'#'+t).join(' ')}\n${T.hash} #MyShelf`;
 }
+async function wikiExtractFor(it){
+  try{
+    let pid=it.wikiPageId;
+    if(!pid){
+      const q=it.wikiTitle||it.title;
+      let hits=await wikiSearch(q,'intitle');
+      let h=hits.find(x=>wRelevant(x.title,q));
+      if(!h){hits=await wikiSearch(q);h=hits.find(x=>wRelevant(x.title,q))}
+      pid=h&&h.pageid;
+    }
+    if(!pid)return '';
+    const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${pid}&prop=extracts&exintro&explaintext&format=json&origin=*`).then(r=>r.json());
+    return (d.query.pages[pid].extract||'').slice(0,700);
+  }catch(e){return ''}
+}
+async function aiContext(it){
+  const ctx={};
+  const jobs=[];
+  jobs.push(wikiExtractFor(it).then(w=>{if(w)ctx.wiki=w}));
+  if(rkKey())jobs.push(rkFetch(it.type,it.title,30).then(d=>{
+    const top=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>+p.revc>0).sort((a,b)=>(+b.revc)-(+a.revc))[0];
+    if(top)ctx.rakuten={rating:+(+top.rev).toFixed(2),count:+top.revc};
+  }).catch(()=>{}));
+  const urls=[...(it.xPosts||[]),...(it.notePosts||[])].slice(0,3);
+  if(urls.length)jobs.push(Promise.all(urls.map(u=>
+    fetch(API_BASE+'/api/oembed?url='+enc(u)).then(r=>r.ok?r.json():null).catch(()=>null)
+  )).then(list=>{
+    const vs=list.filter(v=>v&&v.text).map(v=>v.text);
+    if(vs.length)ctx.voices=vs;
+  }).catch(()=>{}));
+  await Promise.all(jobs);
+  return ctx;
+}
 async function aiFormat(it,mode){
+  const ctx=mode==='note'?await aiContext(it):{};
   const r=await fetch(API_BASE+'/api/ai',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo})});
+    body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo,
+      wiki:ctx.wiki||'',rakuten:ctx.rakuten||null,voices:ctx.voices||[]})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||!j.text){if(r.status===503)siteCfg.ai=false;throw new Error(j.error||'ai')}
   return j.text;
