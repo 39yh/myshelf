@@ -164,23 +164,20 @@ function stars(n){return '★'.repeat(n)+'☆'.repeat(5-n)}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function fmtDate(d){return d?d.replaceAll('-','/'):''}
-function jsonp(url){return new Promise((res,rej)=>{
-  const cb='__rk'+Math.random().toString(36).slice(2);
-  const s=document.createElement('script');
-  const clean=()=>{delete window[cb];s.remove()};
-  window[cb]=d=>{clean();res(d)};
-  s.onerror=()=>{clean();rej(new Error('jsonp'))};
-  s.src=url+'&callback='+cb;document.head.appendChild(s);
-  setTimeout(()=>{if(window[cb]){clean();rej(new Error('timeout'))}},8000);
-})}
-/* ============ rakuten ============ */
-function rkKey(){return settings.rakutenAppId}
-function rkSearchUrl(type,q,hits){
-  const aff=settings.rakutenAffiliateId?`&affiliateId=${enc(settings.rakutenAffiliateId)}`:'';
-  const base=`format=json&formatVersion=2&hits=${hits}&applicationId=${enc(settings.rakutenAppId)}${aff}`;
-  if(type==='book')return `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${base}&title=${enc(q)}`;
-  if(type==='movie')return `https://app.rakuten.co.jp/services/api/BooksDVD/Search/20170404?${base}&title=${enc(q)}`;
-  return `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?${base}&keyword=${enc(q+' 図録')}`;
+/* ============ rakuten（中継所 /api/rakuten 経由・アフィリエイトIDはサーバー側で付与） ============ */
+let rkState='unknown'; // unknown | ok | unconfigured
+function rkKey(){return rkState!=='unconfigured'}
+function rkUrl(type,q,hits){
+  const p=new URLSearchParams({src:type,hits:String(hits)});
+  if(type==='museum')p.set('keyword',q+' 図録');else p.set('title',q);
+  return '/api/rakuten?'+p.toString();
+}
+async function rkFetch(type,q,hits){
+  const r=await fetch(rkUrl(type,q,hits));
+  const d=await r.json().catch(()=>({}));
+  if(r.status===503||d.error==='not_configured'){rkState='unconfigured';throw new Error('not_configured')}
+  if(!r.ok||d.error)throw new Error(d.error||('http '+r.status));
+  rkState='ok';return d;
 }
 function bigImg(u){return (u||'').replace(/\?_ex=\d+x\d+/,'?_ex=400x400')}
 function rkNorm(type,i){
@@ -278,8 +275,8 @@ async function suggest(q){
   if($('#f_title')?.value.trim()!==q)return;
   const out=[...(rk||[]),...(wk||[])];
   window._ac=out;window._lastRk=rk||[];
-  const hint=(!rkKey()&&formType!=='museum')
-    ?`<div class="acitem" onmousedown="go('settings')"><span class="src">設定</span><span class="sub">楽天アプリIDを登録すると、書影つきのタイトル候補が表示されます →</span></div>`:'';
+  const hint=(rkState==='unconfigured')
+    ?`<div class="acitem"><span class="src">準備中</span><span class="sub">楽天連携（中継所の環境変数）が未設定のため、書影つき候補は表示できません。</span></div>`:'';
   $('#aclist').innerHTML=(out.length||hint)?`<div class="aclist">${out.map((a,i)=>
     `<div class="acitem" onmousedown="pickAc(${i})">
        ${a.img?`<img src="${esc(a.img)}" alt="">`:''}
@@ -294,8 +291,7 @@ async function wikiSuggest(q,loose){
   return (d.query?.search||[]).map(s=>({t:'wk',title:s.title,pageid:s.pageid}));
 }
 async function rkSuggest(q){
-  const d=await jsonp(rkSearchUrl(formType,q,5));
-  if(d.error)throw new Error(d.error);
+  const d=await rkFetch(formType,q,5);
   return (d.Items||[]).map(i=>{const n=rkNorm(formType,i);return {t:'rk',title:n.title,author:n.author,img:n.img}});
 }
 function pickAc(i){
@@ -431,7 +427,7 @@ function reviewPanel(it){
 async function loadRkReview(it){
   if(!rkKey())return;
   try{
-    const d=await jsonp(rkSearchUrl(it.type,it.title,1));
+    const d=await rkFetch(it.type,it.title,1);
     const i=(d.Items||[])[0];if(!i)return;
     const n=rkNorm(it.type,i);
     if(!n.revc)return;
@@ -451,17 +447,17 @@ function linksPanel(it){
     ?[['AmazonでDVD/Blu-rayを探す',`https://www.amazon.co.jp/s?k=${t}&i=dvd${tag}`]]
     :[['Amazonで図録・関連書籍を探す',`https://www.amazon.co.jp/s?k=${t}+%E5%9B%B3%E9%8C%B2&i=stripbooks${tag}`]];
   const rkPart=rkKey()
-    ?`<div class="panel"><h4>関連商品 — 楽天${settings.rakutenAffiliateId?'（アフィリエイト適用中）':''}</h4>
+    ?`<div class="panel"><h4>関連商品 — 楽天</h4>
        <div class="prodscroll" id="rklist"><div class="spin">商品を検索中…</div></div>
-       <div class="note">上位5件が表示され、スクロールで最大30件まで見られます。${settings.rakutenAffiliateId?'':'※ 設定画面で楽天アフィリエイトIDを登録すると全リンクがアフィリエイト化されます。'}</div></div>`
-    :`<div class="panel"><div class="note">設定画面で「楽天アプリID」を登録すると、ここに商品画像・商品名・価格つきの関連商品が最大30件表示されます（アフィリエイト対応）。</div></div>`;
+       <div class="note">上位5件が表示され、スクロールで最大30件まで見られます。リンクはサイト運営者のアフィリエイトIDで生成されます。</div></div>`
+    :`<div class="panel"><div class="note">楽天連携が未設定です（Vercelの環境変数 RAKUTEN_APP_ID / RAKUTEN_AFFILIATE_ID / RAKUTEN_REFERER を設定すると有効になります）。</div></div>`;
   return rkPart+`<div class="panel"><h4>Amazon</h4><div class="linklist">${az.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div></div>`;
 }
 async function loadRkProducts(it){
   if(!rkKey())return;
   const el=$('#rklist');if(!el)return;
   try{
-    const d=await jsonp(rkSearchUrl(it.type,it.title,30));
+    const d=await rkFetch(it.type,it.title,30);
     const list=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>p.title);
     if(!list.length){el.innerHTML=`<div class="spin">商品が見つかりませんでした</div>`;return}
     el.innerHTML=list.map(p=>`
@@ -552,11 +548,8 @@ function renderSettings(){
   <button class="backlink" onclick="go('list')">← Back</button>
   <div class="panel">
     <h4>連携設定</h4>
+    <div class="note" style="margin:0 0 6px">楽天連携（商品検索・アフィリエイト）はサーバー側の中継所で設定済みのため、アプリ側での入力は不要です。</div>
     <form onsubmit="return saveSettingsForm(event)">
-      <label>楽天アプリID（候補表示・関連商品用）</label>
-      <input type="text" id="s_rkapp" value="${esc(settings.rakutenAppId)}" placeholder="webservice.rakuten.co.jp で無料取得">
-      <label>楽天アフィリエイトID</label>
-      <input type="text" id="s_rkaff" value="${esc(settings.rakutenAffiliateId)}" placeholder="例: 1a2b3c4d.5e6f7g8h.…">
       <label>Amazonアソシエイトタグ</label>
       <input type="text" id="s_amazon" value="${esc(settings.amazonTag)}" placeholder="例: yourname-22">
       <label>Claude APIキー（任意・AI整形の品質向上）</label>
@@ -576,8 +569,6 @@ function renderSettings(){
   </div>`;
 }
 function saveSettingsForm(e){e.preventDefault();
-  settings.rakutenAppId=$('#s_rkapp').value.trim();
-  settings.rakutenAffiliateId=$('#s_rkaff').value.trim();
   settings.amazonTag=$('#s_amazon').value.trim();
   settings.claudeApiKey=$('#s_claude').value.trim();
   saveSettings();toast('設定を保存しました');return false}

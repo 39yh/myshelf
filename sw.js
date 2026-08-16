@@ -1,4 +1,4 @@
-const CACHE = 'myshelf-v3';
+const CACHE = 'myshelf-v4';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -8,6 +8,7 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
+  if (new URL(e.request.url).pathname.startsWith('/api/')) return; // 中継所のレスポンスはキャッシュしない
   e.respondWith(
     fetch(e.request).then(r => {
       const cp = r.clone();
