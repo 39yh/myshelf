@@ -747,6 +747,32 @@ async function loadRkProducts(it){
   }catch(e){el.innerHTML=`<div class="spin">楽天APIに接続できませんでした。アプリIDをご確認ください。</div>`}
 }
 /* ============ share / AI ============ */
+function xWeight(str){let n=0;for(const ch of String(str||'')){n+=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(ch)?2:1}return n}
+function xTrim(str,limit){
+  const max=limit||280;
+  if(xWeight(str)<=max)return str;
+  let out='';let n=0;
+  for(const ch of String(str)){
+    const w=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(ch)?2:1;
+    if(n+w>max-2)break;
+    out+=ch;n+=w;
+  }
+  return out+'…';
+}
+/* 関連商品の先頭アイテム（アフィリエイトURL）を末尾に添える */
+async function affiliateTail(it,mode){
+  if(!rkKey())return '';
+  try{
+    const d=await rkFetch(it.type,it.title,1);
+    const p=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(x=>x.title&&x.url)[0];
+    if(!p)return '';
+    if(mode==='note'){
+      const price=p.price?`（${(+p.price).toLocaleString()}円）`:'';
+      return `\n\n---\n\n▼ この作品\n[${p.title}${price}](${p.url})\n\n※ 商品リンクにはアフィリエイトを含みます。`;
+    }
+    return `\n${p.url}`;
+  }catch(e){return ''}
+}
 function baseText(it){
   const T=TYPES[it.type];
   let s=`${T.emoji}『${it.title}』${it.creator?`（${it.creator}）`:''} ${stars(it.rating||0)}\n`;
@@ -755,10 +781,10 @@ function baseText(it){
   s+=T.hash+' #MyShelf';
   return s;
 }
-function postX(id){
+async function postX(id){
   const it=items.find(x=>x.id===id);
-  let text=baseText(it);
-  if(text.length>270)text=text.slice(0,267)+'…';
+  const tail=await affiliateTail(it,'x');
+  const text=xTrim(baseText(it),tail?252:280)+tail;
   open(`https://twitter.com/intent/tweet?text=${enc(text)}`,'_blank');
 }
 let ai={itemId:null,mode:'x',text:''};
@@ -788,11 +814,16 @@ async function runFormat(){
     const ta=$('#aitext');if(ta)ta.value=ai.mode==='note'?'作品情報と口コミを集めてAIが記事を書いています…':'AIが文章を整えています…';
     try{ai.text=await aiFormat(it,ai.mode)}catch(e){ai.text=templateFormat(it,ai.mode);const n=$('#ainote');if(n)n.textContent='AI整形が利用できなかったため、定型の文章を表示しています。'}
   }else{ai.text=templateFormat(it,ai.mode)}
+  const tail=await affiliateTail(it,ai.mode);
+  if(tail&&ai.text.indexOf(tail.trim().split('\n').pop())<0){
+    if(ai.mode==='x')ai.text=xTrim(ai.text,252)+tail;
+    else ai.text=ai.text.replace(/\s+$/,'')+tail;
+  }
   const ta=$('#aitext');if(ta)ta.value=ai.text;
 }
 function templateFormat(it,mode){
   const T=TYPES[it.type];
-  if(mode==='x'){let s=baseText(it);if(s.length>270)s=s.slice(0,267)+'…';return s}
+  if(mode==='x')return xTrim(baseText(it),252);
   const verb=it.type==='book'?'読了':it.type==='movie'?'鑑賞':'訪問';
   return `# ${T.emoji}『${it.title}』を${verb}して\n\n`+
     `${fmtDate(it.date)}、${it.creator?`${it.creator}の`:''}『${it.title}』を${verb}しました。評価は${stars(it.rating||0)}です。\n\n`+
@@ -837,7 +868,7 @@ async function aiFormat(it,mode){
   const ctx=mode==='note'?await aiContext(it):{};
   const r=await fetch(API_BASE+'/api/ai',{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo,
-      wiki:ctx.wiki||'',rakuten:ctx.rakuten||null,voices:ctx.voices||[]})});
+      wiki:ctx.wiki||'',rakuten:ctx.rakuten||null,voices:ctx.voices||[],reserveLink:!!rkKey()})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||!j.text){if(r.status===503)siteCfg.ai=false;throw new Error(j.error||'ai')}
   return j.text;
