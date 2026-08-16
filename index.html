@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16151a">
+<title>MyShelf — 本・映画・美術館の感想ノート</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f6f2; --card:#fffefb; --ink:#16151a; --sub:#7a766c; --line:#e4e1d8;
+  --accent:#2c5248; --gold:#b08d3e; --danger:#a34432;
+  --serif:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --sans:"Inter","Hiragino Sans","Noto Sans JP",sans-serif;
+  --shadow:0 1px 2px rgba(22,21,26,.04),0 8px 24px rgba(22,21,26,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;padding-bottom:100px;-webkit-font-smoothing:antialiased}
+/* header */
+header{position:sticky;top:0;z-index:10;background:rgba(247,246,242,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:16px 20px 12px;display:flex;align-items:flex-end;justify-content:space-between}
+.logo{font-family:var(--serif);font-size:1.45rem;font-weight:700;letter-spacing:.02em;line-height:1}
+.logo em{font-style:normal;color:var(--accent)}
+.tagline{font-size:.58rem;letter-spacing:.32em;color:var(--sub);text-transform:uppercase;margin-top:5px}
+.iconbtn{background:none;border:none;font-size:1.25rem;cursor:pointer;padding:6px;color:var(--sub);transition:color .2s}
+.iconbtn:hover{color:var(--ink)}
+main{max-width:680px;margin:0 auto;padding:18px 16px 20px}
+/* tabs */
+.tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
+.tab{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:7px 16px;font-size:.82rem;cursor:pointer;white-space:nowrap;color:var(--sub);transition:all .15s;font-family:var(--sans)}
+.tab.on{background:var(--ink);color:#f7f6f2;border-color:var(--ink)}
+.toolbar{display:flex;gap:8px;margin-bottom:18px}
+.toolbar input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:.88rem;background:var(--card);font-family:var(--sans)}
+.toolbar input:focus,form input:focus,form textarea:focus{outline:none;border-color:var(--accent)}
+.toolbar select{border:1px solid var(--line);border-radius:10px;padding:9px;font-size:.82rem;background:var(--card);color:var(--sub)}
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);cursor:pointer;display:flex;gap:14px;align-items:flex-start;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,21,26,.09)}
+.card .emoji{font-size:1.45rem;line-height:1.3;filter:grayscale(.15)}
+.card h3{font-family:var(--serif);font-size:1.02rem;font-weight:600;margin-bottom:3px;letter-spacing:.01em}
+.card .meta{font-size:.75rem;color:var(--sub);letter-spacing:.03em}
+.card .memo-preview{font-size:.82rem;color:var(--sub);margin-top:6px;line-height:1.7;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stars{color:var(--gold);font-size:.82rem;letter-spacing:.08em;margin-top:2px}
+.tagchip{display:inline-block;background:transparent;border:1px solid var(--line);border-radius:6px;padding:1px 8px;font-size:.68rem;color:var(--sub);margin:6px 4px 0 0;letter-spacing:.04em}
+.empty{text-align:center;color:var(--sub);padding:70px 20px;font-size:.88rem;line-height:2.2;font-family:var(--serif)}
+/* fab */
+.fab{position:fixed;right:22px;bottom:26px;width:56px;height:56px;border-radius:50%;background:var(--ink);color:#f7f6f2;font-size:1.7rem;border:none;box-shadow:0 6px 20px rgba(22,21,26,.35);cursor:pointer;z-index:20;transition:transform .15s}
+.fab:hover{transform:scale(1.06)}
+/* form */
+form label{display:block;font-size:.68rem;color:var(--sub);margin:16px 0 6px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+form input[type=text],form input[type=date],form textarea,form select,form input[type=password]{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:.95rem;background:var(--card);font-family:var(--sans)}
+form textarea{min-height:110px;resize:vertical;line-height:1.8}
+.typesel{display:flex;gap:8px}
+.typesel button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:13px 4px;font-size:.85rem;cursor:pointer;color:var(--sub);transition:all .15s}
+.typesel button.on{border-color:var(--ink);color:var(--ink);background:#efede6;font-weight:600}
+.starinput{font-size:1.75rem;cursor:pointer;color:#dcd8cc;user-select:none;letter-spacing:.06em}
+.starinput .lit{color:var(--gold)}
+.btnrow{display:flex;gap:10px;margin-top:24px}
+.btn{flex:1;border:none;border-radius:11px;padding:13px;font-size:.92rem;cursor:pointer;font-weight:600;font-family:var(--sans);transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn.primary{background:var(--ink);color:#f7f6f2}
+.btn.accent{background:var(--accent);color:#f7f6f2}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--sub)}
+.btn.danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+.btn.small{flex:none;padding:9px 15px;font-size:.8rem;border-radius:9px}
+/* autocomplete */
+.acwrap{position:relative}
+.aclist{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(22,21,26,.14);z-index:30;max-height:280px;overflow-y:auto}
+.acitem{padding:11px 14px;font-size:.87rem;cursor:pointer;border-bottom:1px solid var(--line);display:flex;gap:9px;align-items:baseline}
+.acitem:last-child{border-bottom:none}
+.acitem:hover{background:#f2f0ea}
+.acitem .src{font-size:.62rem;color:#fff;border-radius:4px;padding:1px 5px;letter-spacing:.05em;flex-shrink:0}
+.src.rk{background:#bf0000}.src.wk{background:#6a6a72}
+.acitem .sub{color:var(--sub);font-size:.75rem}
+/* detail */
+.dhead .meta{color:var(--sub);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase}
+.dhead h2{font-family:var(--serif);font-size:1.5rem;font-weight:700;margin:6px 0 4px;line-height:1.4}
+.dhead .creator{color:var(--sub);font-size:.88rem}
+.dtabs{display:flex;border-bottom:1px solid var(--line);margin:18px 0 16px}
+.dtab{flex:1;text-align:center;padding:11px 2px;font-size:.8rem;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;letter-spacing:.05em;transition:color .15s}
+.dtab.on{color:var(--ink);border-color:var(--ink);font-weight:600}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:14px}
+.panel h4{font-size:.68rem;color:var(--sub);margin-bottom:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
+.memo-body{white-space:pre-wrap;font-size:.95rem;line-height:2}
+.quote{border-left:2px solid var(--gold);padding:6px 14px;margin:10px 0 16px;color:#5d5748;font-size:.9rem;white-space:pre-wrap;font-family:var(--serif);line-height:1.9}
+.linklist a{display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:.9rem}
+.linklist a:last-child{border-bottom:none}
+.linklist a::after{content:"↗";color:var(--sub);font-size:.8rem}
+.linklist a:hover{color:var(--accent)}
+.note{font-size:.75rem;color:var(--sub);line-height:1.8;margin-top:10px}
+.wikiimg{width:100%;max-height:240px;object-fit:cover;border-radius:10px;margin-bottom:14px}
+.spin{text-align:center;color:var(--sub);padding:28px;font-size:.83rem}
+/* products */
+.prodscroll{max-height:470px;overflow-y:auto;border:1px solid var(--line);border-radius:12px}
+.prod{display:flex;gap:12px;padding:12px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);align-items:center;transition:background .15s}
+.prod:hover{background:#f2f0ea}
+.prod:last-child{border-bottom:none}
+.prod img{width:52px;height:74px;object-fit:contain;flex-shrink:0;background:#eee;border-radius:4px}
+.prod .pt{font-size:.83rem;font-weight:500;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prod .pa{font-size:.72rem;color:var(--sub);margin-top:2px}
+.prod .pp{font-size:.85rem;color:#bf0000;font-weight:600;margin-top:3px}
+.prod .pr{font-size:.7rem;color:var(--gold);font-weight:400;margin-left:6px}
+.revsum{display:flex;align-items:center;gap:12px;background:#faf8f2;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.revsum .big{font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--gold)}
+.revsum .cnt{font-size:.78rem;color:var(--sub);line-height:1.6}
+/* modal */
+.modalbg{position:fixed;inset:0;background:rgba(22,21,26,.5);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;padding:22px 20px 32px}
+.modal h3{font-family:var(--serif);font-size:1.05rem;margin-bottom:14px}
+.modal textarea{width:100%;min-height:190px;border:1px solid var(--line);border-radius:10px;padding:13px;font-size:.9rem;font-family:var(--sans);background:var(--card);line-height:1.9}
+.chiprow{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:8px 15px;font-size:.82rem;cursor:pointer;color:var(--sub)}
+.chip.on{border-color:var(--ink);color:var(--ink);font-weight:600;background:#efede6}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:104px;background:var(--ink);color:#f7f6f2;padding:11px 22px;border-radius:99px;font-size:.83rem;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+.backlink{color:var(--sub);font-size:.8rem;cursor:pointer;background:none;border:none;padding:4px 0;margin-bottom:8px;letter-spacing:.05em;font-family:var(--sans)}
+.backlink:hover{color:var(--ink)}
+hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="logo">My<em>Shelf</em></div>
+    <div class="tagline">Books · Films · Museums</div>
+  </div>
+  <button class="iconbtn" onclick="go('settings')" aria-label="設定">⚙︎</button>
+</header>
+<main id="view"></main>
+<button class="fab" onclick="go('form')" aria-label="追加">＋</button>
+<div id="modalroot"></div>
+<div id="toast" class="toast"></div>
+<script>
+/* ============ state ============ */
+const TYPES={book:{label:'本',emoji:'📖',hash:'#読書記録'},movie:{label:'映画',emoji:'🎬',hash:'#映画鑑賞'},museum:{label:'美術館',emoji:'🖼️',hash:'#美術館巡り'}};
+let mem={};
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return mem[k]||d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}
+let items=lsGet('kansou_items',[]);
+let settings=Object.assign({amazonTag:'',rakutenAppId:'',rakutenAffiliateId:'',claudeApiKey:''},lsGet('kansou_settings',{}));
+function saveItems(){lsSet('kansou_items',items)}
+function saveSettings(){lsSet('kansou_settings',settings)}
+let ui={filter:'all',q:'',sort:'new',dtab:'memo'};
+/* ============ utils ============ */
+const $=s=>document.querySelector(s);
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function enc(s){return encodeURIComponent(s||'')}
+function stars(n){return '★'.repeat(n)+'☆'.repeat(5-n)}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function fmtDate(d){return d?d.replaceAll('-','/'):''}
+function jsonp(url){return new Promise((res,rej)=>{
+  const cb='__rk'+Math.random().toString(36).slice(2);
+  const s=document.createElement('script');
+  const clean=()=>{delete window[cb];s.remove()};
+  window[cb]=d=>{clean();res(d)};
+  s.onerror=()=>{clean();rej(new Error('jsonp'))};
+  s.src=url+'&callback='+cb;document.head.appendChild(s);
+  setTimeout(()=>{if(window[cb]){clean();rej(new Error('timeout'))}},8000);
+})}
+/* ============ rakuten ============ */
+function rkKey(){return settings.rakutenAppId}
+function rkSearchUrl(type,q,hits){
+  const aff=settings.rakutenAffiliateId?`&affiliateId=${enc(settings.rakutenAffiliateId)}`:'';
+  const base=`format=json&formatVersion=2&hits=${hits}&applicationId=${enc(settings.rakutenAppId)}${aff}`;
+  if(type==='book')return `https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404?${base}&title=${enc(q)}`;
+  if(type==='movie')return `https://app.rakuten.co.jp/services/api/BooksDVD/Search/20170404?${base}&title=${enc(q)}`;
+  return `https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?${base}&keyword=${enc(q+' 図録')}`;
+}
+function rkNorm(type,i){
+  if(type==='museum')return {title:i.itemName,author:i.shopName,price:i.itemPrice,img:(i.mediumImageUrls||[])[0]||'',url:i.affiliateUrl||i.itemUrl,rev:i.reviewAverage,revc:i.reviewCount};
+  return {title:i.title,author:i.author||i.artistName||'',price:i.itemPrice,img:i.largeImageUrl||i.mediumImageUrl||'',url:i.affiliateUrl||i.itemUrl,rev:i.reviewAverage,revc:i.reviewCount};
+}
+/* ============ router ============ */
+function go(view,id){window.scrollTo(0,0);
+  if(view==='list')renderList();
+  else if(view==='form')renderForm(id);
+  else if(view==='detail'){ui.dtab='memo';renderDetail(id)}
+  else if(view==='settings')renderSettings();
+}
+/* ============ list ============ */
+function renderList(){
+  let list=items.filter(it=>(ui.filter==='all'||it.type===ui.filter));
+  if(ui.q){const q=ui.q.toLowerCase();list=list.filter(it=>(it.title+it.creator+it.memo+(it.tags||[]).join()).toLowerCase().includes(q))}
+  list.sort((a,b)=>ui.sort==='rating'?(b.rating-a.rating)||(b.date||'').localeCompare(a.date||''):(b.date||b.createdAt||'').localeCompare(a.date||a.createdAt||''));
+  const tabs=[['all','すべて'],['book','📖 本'],['movie','🎬 映画'],['museum','🖼️ 美術館']]
+    .map(([k,l])=>`<button class="tab ${ui.filter===k?'on':''}" onclick="ui.filter='${k}';renderList()">${l}</button>`).join('');
+  $('#view').innerHTML=`
+    <div class="tabs">${tabs}</div>
+    <div class="toolbar">
+      <input placeholder="タイトル・タグで検索" value="${esc(ui.q)}" oninput="ui.q=this.value;renderList()">
+      <select onchange="ui.sort=this.value;renderList()">
+        <option value="new" ${ui.sort==='new'?'selected':''}>新しい順</option>
+        <option value="rating" ${ui.sort==='rating'?'selected':''}>評価順</option>
+      </select>
+    </div>
+    ${list.length?list.map(cardHtml).join(''):`<div class="empty">まだ記録がありません。<br>＋ボタンから最初の一冊・一本・一展を。</div>`}`;
+}
+function cardHtml(it){
+  return `<div class="card" onclick="go('detail','${it.id}')">
+    <div class="emoji">${TYPES[it.type].emoji}</div>
+    <div style="flex:1">
+      <h3>${esc(it.title)}</h3>
+      <div class="meta">${esc(it.creator)}${it.creator&&it.date?'　—　':''}${fmtDate(it.date)}</div>
+      <div class="stars">${stars(it.rating||0)}</div>
+      ${it.memo?`<div class="memo-preview">${esc(it.memo)}</div>`:''}
+      ${(it.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join('')}
+    </div></div>`;
+}
+/* ============ form ============ */
+let formType='book',acT=null;window._ac=[];
+function renderForm(id){
+  const it=id?items.find(x=>x.id===id):null;
+  formType=it?it.type:'book';
+  $('#view').innerHTML=`
+  <button class="backlink" onclick="go('list')">← 一覧へ戻る</button>
+  <form onsubmit="return submitForm(event,'${id||''}')" autocomplete="off">
+    <label>種類</label>
+    <div class="typesel" id="typesel">
+      ${Object.entries(TYPES).map(([k,v])=>`<button type="button" data-t="${k}" class="${formType===k?'on':''}" onclick="setType('${k}')">${v.emoji} ${v.label}</button>`).join('')}
+    </div>
+    <label>タイトル *</label>
+    <div class="acwrap">
+      <input type="text" id="f_title" required value="${esc(it?.title)}" placeholder="入力すると候補が表示されます" oninput="onTitleInput()" onblur="setTimeout(hideAc,250)">
+      <div id="aclist"></div>
+    </div>
+    <label id="creatorlabel">${creatorLabel(formType)}</label><input type="text" id="f_creator" value="${esc(it?.creator)}" placeholder="候補選択で自動入力">
+    <label>鑑賞日・読了日</label><input type="date" id="f_date" value="${it?.date||new Date().toISOString().slice(0,10)}">
+    <label>評価</label><div class="starinput" id="starinput">${[1,2,3,4,5].map(n=>`<span data-n="${n}" onclick="setStar(${n})">★</span>`).join('')}</div>
+    <label>印象に残ったフレーズ・作品</label><textarea id="f_quotes" style="min-height:70px" placeholder="心に残った一節、印象的だった作品など">${esc(it?.quotes)}</textarea>
+    <label>感想メモ</label><textarea id="f_memo" placeholder="自由に感想を記録">${esc(it?.memo)}</textarea>
+    <label>タグ（カンマ区切り）</label><input type="text" id="f_tags" value="${esc((it?.tags||[]).join(', '))}" placeholder="小説, 印象派, 再読したい">
+    <label>Wikipedia検索名（候補選択で自動設定）</label><input type="text" id="f_wiki" value="${esc(it?.wikiTitle)}">
+    <div class="btnrow">
+      <button type="button" class="btn ghost" onclick="go('list')">キャンセル</button>
+      <button type="submit" class="btn primary">${id?'更新する':'記録する'}</button>
+    </div>
+  </form>`;
+  window._star=it?.rating||3;paintStars();
+}
+function creatorLabel(t){return t==='book'?'著者':t==='movie'?'監督・出演':'美術館・会場'}
+function setType(t){formType=t;document.querySelectorAll('#typesel button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$('#creatorlabel').textContent=creatorLabel(t)}
+function setStar(n){window._star=n;paintStars()}
+function paintStars(){document.querySelectorAll('#starinput span').forEach(s=>s.classList.toggle('lit',+s.dataset.n<=window._star))}
+/* --- autocomplete --- */
+function onTitleInput(){clearTimeout(acT);const q=$('#f_title').value.trim();if(q.length<2)return hideAc();acT=setTimeout(()=>suggest(q),380)}
+async function suggest(q){
+  const jobs=[wikiSuggest(q).catch(()=>[])];
+  if(rkKey()&&formType!=='museum')jobs.push(rkSuggest(q).catch(()=>[]));
+  const [wk,rk]=await Promise.all(jobs);
+  if($('#f_title')?.value.trim()!==q)return;
+  const out=[...(rk||[]),...(wk||[])];
+  window._ac=out;
+  $('#aclist').innerHTML=out.length?`<div class="aclist">${out.map((a,i)=>
+    `<div class="acitem" onmousedown="pickAc(${i})">
+       <span class="src ${a.t}">${a.t==='rk'?'楽天':'Wiki'}</span>
+       <span>${esc(a.title)}${a.author?` <span class="sub">／ ${esc(a.author)}</span>`:''}${a.snip?` <span class="sub">${esc(a.snip)}</span>`:''}</span>
+     </div>`).join('')}</div>`:'';
+}
+function hideAc(){const el=$('#aclist');if(el)el.innerHTML=''}
+async function wikiSuggest(q){
+  const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&srlimit=5&format=json&origin=*`).then(r=>r.json());
+  return (d.query?.search||[]).map(s=>({t:'wk',title:s.title,pageid:s.pageid}));
+}
+async function rkSuggest(q){
+  const d=await jsonp(rkSearchUrl(formType,q,4));
+  return (d.Items||[]).map(i=>{const n=rkNorm(formType,i);return {t:'rk',title:n.title,author:n.author}});
+}
+function pickAc(i){
+  const a=window._ac[i];if(!a)return;
+  $('#f_title').value=a.title.replace(/\s*[（(].*?[）)]\s*$/,'');
+  if(a.author&&!$('#f_creator').value)$('#f_creator').value=a.author;
+  if(a.t==='wk'){
+    $('#f_wiki').value=a.title;
+    if(!$('#f_creator').value)wikidataCreator(a.pageid).then(c=>{const el=$('#f_creator');if(c&&el&&!el.value){el.value=c;toast('作者情報を自動入力しました')}});
+  }
+  hideAc();
+}
+async function wikidataCreator(pageid){
+  try{
+    const p=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${pageid}&prop=pageprops&format=json&origin=*`).then(r=>r.json());
+    const qid=p.query.pages[pageid].pageprops?.wikibase_item;if(!qid)return'';
+    const e=await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid}&props=claims&format=json&origin=*`).then(r=>r.json());
+    const cl=e.entities[qid].claims;
+    const pid=['P50','P57','P170','P127'].find(k=>cl[k]);if(!pid)return'';
+    const cid=cl[pid][0].mainsnak.datavalue?.value?.id;if(!cid)return'';
+    const l=await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${cid}&props=labels&languages=ja|en&format=json&origin=*`).then(r=>r.json());
+    const lb=l.entities[cid].labels;return (lb.ja||lb.en||{}).value||'';
+  }catch(e){return''}
+}
+function submitForm(e,id){e.preventDefault();
+  const data={type:formType,title:$('#f_title').value.trim(),creator:$('#f_creator').value.trim(),date:$('#f_date').value,
+    rating:window._star,quotes:$('#f_quotes').value.trim(),memo:$('#f_memo').value.trim(),
+    tags:$('#f_tags').value.split(/[,、]/).map(s=>s.trim()).filter(Boolean),wikiTitle:$('#f_wiki').value.trim(),updatedAt:Date.now()};
+  if(id){Object.assign(items.find(x=>x.id===id),data)}else{items.unshift({id:uid(),createdAt:Date.now(),...data})}
+  saveItems();toast('保存しました');go('list');return false;
+}
+function delItem(id){if(!confirm('この記録を削除しますか？'))return;items=items.filter(x=>x.id!==id);saveItems();toast('削除しました');go('list')}
+/* ============ detail ============ */
+function renderDetail(id){
+  const it=items.find(x=>x.id===id);if(!it)return go('list');
+  const tabs=[['memo','感想'],['wiki','Wikipedia'],['review','口コミ'],['links','関連商品']]
+    .map(([k,l])=>`<div class="dtab ${ui.dtab===k?'on':''}" onclick="ui.dtab='${k}';renderDetail('${id}')">${l}</div>`).join('');
+  $('#view').innerHTML=`
+  <button class="backlink" onclick="go('list')">← 一覧へ戻る</button>
+  <div class="dhead">
+    <div class="meta">${TYPES[it.type].label}　${fmtDate(it.date)}</div>
+    <h2>${esc(it.title)}</h2>
+    <div class="creator">${esc(it.creator)}</div>
+    <div class="stars" style="font-size:1rem;margin-top:5px">${stars(it.rating||0)}</div>
+  </div>
+  <div class="dtabs">${tabs}</div>
+  <div id="dpanel"></div>`;
+  const p=$('#dpanel');
+  if(ui.dtab==='memo')p.innerHTML=memoPanel(it);
+  else if(ui.dtab==='wiki'){p.innerHTML=`<div class="panel"><div class="spin">Wikipediaを検索中…</div></div>`;loadWiki(it)}
+  else if(ui.dtab==='review'){p.innerHTML=reviewPanel(it);loadRkReview(it)}
+  else{p.innerHTML=linksPanel(it);loadRkProducts(it)}
+}
+function memoPanel(it){
+  return `<div class="panel">
+    ${it.quotes?`<h4>印象に残ったフレーズ</h4><div class="quote">${esc(it.quotes)}</div>`:''}
+    <h4>感想メモ</h4>
+    <div class="memo-body">${it.memo?esc(it.memo):'<span style="color:var(--sub)">（未記入）</span>'}</div>
+    ${(it.tags||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join('')}
+    <hr class="sep">
+    <h4>シェア</h4>
+    <div class="btnrow" style="margin-top:8px">
+      <button class="btn small accent" onclick="openAiModal('${it.id}')">✨ AI文章整形して投稿</button>
+      <button class="btn small ghost" onclick="postX('${it.id}')">𝕏 そのまま投稿</button>
+    </div>
+    <div class="btnrow" style="margin-top:10px">
+      <button class="btn small ghost" onclick="go('form','${it.id}')">✏️ 編集</button>
+      <button class="btn small danger" onclick="delItem('${it.id}')">削除</button>
+    </div>
+  </div>`;
+}
+/* ---- Wikipedia ---- */
+async function loadWiki(it){
+  const q=it.wikiTitle||it.title;const p=$('#dpanel');
+  try{
+    const s=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&srlimit=1&format=json&origin=*`).then(r=>r.json());
+    const hit=s.query?.search?.[0];
+    if(!hit){p.innerHTML=`<div class="panel"><div class="note">「${esc(q)}」のWikipedia記事が見つかりませんでした。編集画面の「Wikipedia検索名」で正式名称を指定してみてください。</div></div>`;return}
+    const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${hit.pageid}&prop=extracts|pageimages&exintro&explaintext&piprop=thumbnail&pithumbsize=600&format=json&origin=*`).then(r=>r.json());
+    const pg=d.query.pages[hit.pageid];
+    p.innerHTML=`<div class="panel">
+      ${pg.thumbnail?`<img class="wikiimg" src="${pg.thumbnail.source}" alt="">`:''}
+      <h4>${esc(pg.title)} — Wikipedia</h4>
+      <div class="memo-body" style="font-size:.88rem">${esc((pg.extract||'').slice(0,800))}${(pg.extract||'').length>800?'…':''}</div>
+      <div class="linklist" style="margin-top:10px"><a href="https://ja.wikipedia.org/?curid=${hit.pageid}" target="_blank" rel="noopener">記事全文を読む</a></div>
+    </div>`;
+  }catch(e){p.innerHTML=`<div class="panel"><div class="note">Wikipediaに接続できませんでした（オフラインの可能性）。</div></div>`}
+}
+/* ---- reviews ---- */
+function reviewPanel(it){
+  const t=enc(it.title);
+  const xFav=`https://x.com/search?q=${t}%20min_faves%3A50&f=live`;
+  const perType={
+    book:[['読書メーターの感想',`https://bookmeter.com/search?keyword=${t}`],['ブクログのレビュー',`https://booklog.jp/search?keyword=${t}`],['Amazonレビュー',`https://www.amazon.co.jp/s?k=${t}&i=stripbooks`]],
+    movie:[['Filmarksの感想',`https://filmarks.com/search/movies?q=${t}`],['映画.comのレビュー',`https://eiga.com/search/${t}/`],['KINENOTE',`https://www.kinenote.com/main/public/cinema/list.aspx?fw=${t}`]],
+    museum:[['Googleマップの口コミ',`https://www.google.com/maps/search/${enc(it.creator||it.title)}`],['インターネットミュージアム',`https://www.museum.or.jp/search?keyword=${t}`]]
+  };
+  const links=[['𝕏 でいいねが多い感想を見る',xFav],...perType[it.type]];
+  return `<div class="panel">
+    <div id="rkrev"></div>
+    <h4>みんなの感想・口コミ</h4>
+    <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
+    <div class="note">※ 各口コミサイトはレビュー本文の取得APIを公開していないため、𝕏はいいね50以上に絞った検索、各サイトは作品ページへの直リンクです。楽天のレビュー実データは上部に表示されます。</div>
+  </div>`;
+}
+async function loadRkReview(it){
+  if(!rkKey())return;
+  try{
+    const d=await jsonp(rkSearchUrl(it.type,it.title,1));
+    const i=(d.Items||[])[0];if(!i)return;
+    const n=rkNorm(it.type,i);
+    if(!n.revc)return;
+    const el=$('#rkrev');if(!el)return;
+    el.innerHTML=`<div class="revsum">
+      <div class="big">★${(+n.rev).toFixed(2)}</div>
+      <div class="cnt">楽天レビュー ${n.revc}件<br><a href="${n.url}" target="_blank" rel="noopener" style="color:var(--accent)">レビューを読む ↗</a></div>
+    </div>`;
+  }catch(e){}
+}
+/* ---- products / affiliate ---- */
+function linksPanel(it){
+  const t=enc(it.title);const tag=settings.amazonTag?`&tag=${enc(settings.amazonTag)}`:'';
+  const az=it.type==='book'
+    ?[['Amazonで本を探す',`https://www.amazon.co.jp/s?k=${t}&i=stripbooks${tag}`]]
+    :it.type==='movie'
+    ?[['AmazonでDVD/Blu-rayを探す',`https://www.amazon.co.jp/s?k=${t}&i=dvd${tag}`]]
+    :[['Amazonで図録・関連書籍を探す',`https://www.amazon.co.jp/s?k=${t}+%E5%9B%B3%E9%8C%B2&i=stripbooks${tag}`]];
+  const rkPart=rkKey()
+    ?`<div class="panel"><h4>関連商品 — 楽天${settings.rakutenAffiliateId?'（アフィリエイト適用中）':''}</h4>
+       <div class="prodscroll" id="rklist"><div class="spin">商品を検索中…</div></div>
+       <div class="note">上位5件が表示され、スクロールで最大30件まで見られます。${settings.rakutenAffiliateId?'':'※ 設定画面で楽天アフィリエイトIDを登録すると全リンクがアフィリエイト化されます。'}</div></div>`
+    :`<div class="panel"><div class="note">設定画面で「楽天アプリID」を登録すると、ここに商品画像・商品名・価格つきの関連商品が最大30件表示されます（アフィリエイト対応）。</div></div>`;
+  return rkPart+`<div class="panel"><h4>Amazon</h4><div class="linklist">${az.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div></div>`;
+}
+async function loadRkProducts(it){
+  if(!rkKey())return;
+  const el=$('#rklist');if(!el)return;
+  try{
+    const d=await jsonp(rkSearchUrl(it.type,it.title,30));
+    const list=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>p.title);
+    if(!list.length){el.innerHTML=`<div class="spin">商品が見つかりませんでした</div>`;return}
+    el.innerHTML=list.map(p=>`
+      <a class="prod" href="${p.url}" target="_blank" rel="noopener">
+        ${p.img?`<img src="${p.img.replace('?_ex=120x120','?_ex=200x200')}" loading="lazy" alt="">`:'<div style="width:52px"></div>'}
+        <div style="flex:1;min-width:0">
+          <div class="pt">${esc(p.title)}</div>
+          <div class="pa">${esc(p.author)}</div>
+          <div class="pp">${p.price?(+p.price).toLocaleString()+'円':''}${p.revc?`<span class="pr">★${(+p.rev).toFixed(1)} (${p.revc})</span>`:''}</div>
+        </div></a>`).join('');
+  }catch(e){el.innerHTML=`<div class="spin">楽天APIに接続できませんでした。アプリIDをご確認ください。</div>`}
+}
+/* ============ share / AI ============ */
+function baseText(it){
+  const T=TYPES[it.type];
+  let s=`${T.emoji}『${it.title}』${it.creator?`（${it.creator}）`:''} ${stars(it.rating||0)}\n`;
+  if(it.quotes)s+=`「${it.quotes.split('\n')[0]}」\n`;
+  if(it.memo)s+=it.memo+'\n';
+  s+=T.hash+' #MyShelf';
+  return s;
+}
+function postX(id){
+  const it=items.find(x=>x.id===id);
+  let text=baseText(it);
+  if(text.length>270)text=text.slice(0,267)+'…';
+  open(`https://twitter.com/intent/tweet?text=${enc(text)}`,'_blank');
+}
+let ai={itemId:null,mode:'x',text:''};
+function openAiModal(id){ai={itemId:id,mode:'x',text:''};drawAiModal();runFormat()}
+function drawAiModal(){
+  $('#modalroot').innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3>✨ AI文章整形</h3>
+      <div class="chiprow">
+        <button class="chip ${ai.mode==='x'?'on':''}" onclick="ai.mode='x';drawAiModal();runFormat()">𝕏 投稿用（短文）</button>
+        <button class="chip ${ai.mode==='note'?'on':''}" onclick="ai.mode='note';drawAiModal();runFormat()">note記事用（長文）</button>
+      </div>
+      <textarea id="aitext">${esc(ai.text)}</textarea>
+      <div class="note" id="ainote">${settings.claudeApiKey?'Claude APIで整形しています。':'テンプレート整形です。設定画面でClaude APIキーを登録すると、より自然なAI整形ができます。'}</div>
+      <div class="btnrow">
+        ${ai.mode==='x'
+          ?`<button class="btn primary" onclick="sendToX()">𝕏 に投稿</button>`
+          :`<button class="btn primary" onclick="sendToNote()">コピーしてnoteを開く</button>`}
+        <button class="btn ghost" onclick="closeModal()">閉じる</button>
+      </div>
+    </div></div>`;
+}
+function closeModal(){$('#modalroot').innerHTML=''}
+async function runFormat(){
+  const it=items.find(x=>x.id===ai.itemId);
+  if(settings.claudeApiKey){
+    const ta=$('#aitext');if(ta)ta.value='AIが文章を整形中…';
+    try{ai.text=await claudeFormat(it,ai.mode)}catch(e){ai.text=templateFormat(it,ai.mode);const n=$('#ainote');if(n)n.textContent='API呼び出しに失敗したため、テンプレート整形を表示しています（キーをご確認ください）。'}
+  }else{ai.text=templateFormat(it,ai.mode)}
+  const ta=$('#aitext');if(ta)ta.value=ai.text;
+}
+function templateFormat(it,mode){
+  const T=TYPES[it.type];
+  if(mode==='x'){let s=baseText(it);if(s.length>270)s=s.slice(0,267)+'…';return s}
+  const verb=it.type==='book'?'読了':it.type==='movie'?'鑑賞':'訪問';
+  return `# ${T.emoji}『${it.title}』を${verb}して\n\n`+
+    `${fmtDate(it.date)}、${it.creator?`${it.creator}の`:''}『${it.title}』を${verb}しました。評価は${stars(it.rating||0)}です。\n\n`+
+    (it.quotes?`## 印象に残ったこと\n\n> ${it.quotes.replaceAll('\n','\n> ')}\n\n`:'')+
+    (it.memo?`## 感想\n\n${it.memo}\n\n`:'')+
+    `${(it.tags||[]).map(t=>'#'+t).join(' ')}\n${T.hash} #MyShelf`;
+}
+async function claudeFormat(it,mode){
+  const inst=mode==='x'
+    ?'以下の感想メモを、X（Twitter）に投稿する自然で魅力的な日本語の投稿文（140字以内、ハッシュタグ1〜2個含む）に整形してください。投稿文のみを出力してください。'
+    :'以下の感想メモを、noteに投稿するエッセイ風の記事（見出し付きmarkdown、400〜800字）に整形してください。記事本文のみを出力してください。';
+  const body={model:'claude-sonnet-4-5',max_tokens:1024,messages:[{role:'user',content:`${inst}\n\n種類:${TYPES[it.type].label}\nタイトル:${it.title}\n作者/会場:${it.creator}\n評価:${it.rating}/5\n印象フレーズ:${it.quotes}\n感想メモ:${it.memo}`}]};
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'content-type':'application/json','x-api-key':settings.claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify(body)});
+  if(!r.ok)throw new Error('api');
+  const j=await r.json();return j.content[0].text;
+}
+function sendToX(){let t=$('#aitext').value;open(`https://twitter.com/intent/tweet?text=${enc(t)}`,'_blank')}
+async function sendToNote(){
+  const t=$('#aitext').value;
+  try{await navigator.clipboard.writeText(t)}catch(e){}
+  toast('記事をコピーしました。noteに貼り付けてください');
+  setTimeout(()=>open('https://note.com/notes/new','_blank'),600);
+}
+/* ============ settings ============ */
+function renderSettings(){
+  $('#view').innerHTML=`
+  <button class="backlink" onclick="go('list')">← 一覧へ戻る</button>
+  <div class="panel">
+    <h4>連携設定</h4>
+    <form onsubmit="return saveSettingsForm(event)">
+      <label>楽天アプリID（関連商品・サジェスト用）</label>
+      <input type="text" id="s_rkapp" value="${esc(settings.rakutenAppId)}" placeholder="webservice.rakuten.co.jp で無料取得">
+      <label>楽天アフィリエイトID</label>
+      <input type="text" id="s_rkaff" value="${esc(settings.rakutenAffiliateId)}" placeholder="例: 1a2b3c4d.5e6f7g8h.…">
+      <label>Amazonアソシエイトタグ</label>
+      <input type="text" id="s_amazon" value="${esc(settings.amazonTag)}" placeholder="例: yourname-22">
+      <label>Claude APIキー（任意・AI整形の品質向上）</label>
+      <input type="password" id="s_claude" value="${esc(settings.claudeApiKey)}" placeholder="sk-ant-...">
+      <div class="note">すべて端末内にのみ保存されます。楽天アプリIDは <b>webservice.rakuten.co.jp</b> →「アプリID発行」で数分で取得できます。</div>
+      <div class="btnrow"><button class="btn primary" type="submit">保存</button></div>
+    </form>
+  </div>
+  <div class="panel">
+    <h4>データ管理（${items.length}件）</h4>
+    <div class="btnrow" style="margin-top:8px">
+      <button class="btn small ghost" onclick="exportJson()">📤 エクスポート</button>
+      <button class="btn small ghost" onclick="$('#importfile').click()">📥 インポート</button>
+    </div>
+    <input type="file" id="importfile" accept=".json" style="display:none" onchange="importJson(this)">
+    <div class="note">機種変更時はエクスポートしたJSONを新しい端末でインポートしてください。</div>
+  </div>`;
+}
+function saveSettingsForm(e){e.preventDefault();
+  settings.rakutenAppId=$('#s_rkapp').value.trim();
+  settings.rakutenAffiliateId=$('#s_rkaff').value.trim();
+  settings.amazonTag=$('#s_amazon').value.trim();
+  settings.claudeApiKey=$('#s_claude').value.trim();
+  saveSettings();toast('設定を保存しました');return false}
+function exportJson(){
+  const blob=new Blob([JSON.stringify({items,exportedAt:new Date().toISOString()},null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`myshelf-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+}
+function importJson(inp){
+  const f=inp.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{try{
+    const d=JSON.parse(rd.result);const arr=Array.isArray(d)?d:d.items;
+    if(!Array.isArray(arr))throw 0;
+    const ids=new Set(items.map(x=>x.id));
+    arr.forEach(x=>{if(x.id&&!ids.has(x.id))items.push(x)});
+    saveItems();toast(`インポート完了（現在${items.length}件）`);renderSettings();
+  }catch(e){toast('読み込めないファイルです')}};
+  rd.readAsText(f);
+}
+/* ============ init ============ */
+renderList();
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

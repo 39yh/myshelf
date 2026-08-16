@@ -1,0 +1,13 @@
+{
+  "name": "MyShelf — 本・映画・美術館の感想ノート",
+  "short_name": "MyShelf",
+  "description": "読書・映画・美術館の感想やメモを記録するアプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#16151a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
