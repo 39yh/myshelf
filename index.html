@@ -162,6 +162,11 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .xcount{font-size:.72rem;color:var(--sub);text-align:right;margin-top:6px;letter-spacing:.04em}
 .xcount.near{color:var(--gold)}
 .xcount.over{color:var(--danger)}
+.selrow{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:.84rem}
+.selrow:last-child{border-bottom:none}
+.selrow input{accent-color:var(--gold);width:16px;height:16px;flex-shrink:0}
+.selrow .tico{color:var(--gold);line-height:0}
+.selrow .selt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .viewing .fab,.viewing .iconbtn{display:none}
 .pubhead{text-align:center;margin:6px 0 22px}
 .pubname{font-family:var(--jp-serif);font-size:1.25rem;font-weight:600;letter-spacing:.04em}
@@ -969,34 +974,38 @@ async function sendToNote(){
 function renderSettings(){
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
+
   <div class="panel">
-    <h4>本棚を公開</h4>
-    <div class="note" style="margin:0 0 14px">自分の記録だけをまとめた公開ページのリンクを作れます。公開するかどうか、どの記録を公開するかは利用者ご自身の判断です。<br><br>公開した内容の責任は公開したご本人にあり、運営者は公開された内容について一切の責任を負いません。リンクを知る人は誰でも閲覧できるため、第三者の権利を侵害する内容や、他人の個人情報を含む記録は公開しないでください。</div>
-    <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
-      <button class="btn small accent" onclick="openPublish('all')">公開リンクを作る</button>
-    </div>
+    <h4>MyShelfについて</h4>
+    <div class="note" style="margin:0">読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノートです。記録はこの端末内にのみ保存され、公開リンクを作らないかぎり外部に送信されません。作品情報はWikipedia、関連商品は楽天のデータを利用しています。商品リンクにはアフィリエイトを含みます。</div>
   </div>
+
   <div class="panel">
-    <h4>MyShelfをシェア</h4>
-    <div class="note" style="margin:0 0 14px">本や映画の記録が好きな人に、このアプリを教えられます。</div>
+    <h4>データの保存とバックアップ（${items.length}件）</h4>
+    <div class="btnrow" style="margin-top:0">
+      <button class="btn small ghost" onclick="exportJson()">エクスポート</button>
+      <button class="btn small ghost" onclick="$('#importfile').click()">インポート</button>
+    </div>
+    <input type="file" id="importfile" accept=".json" style="display:none" onchange="importJson(this)">
+    <div class="note">記録はこの端末内に保存されています。アプリを消したり機種を変えると失われるため、ときどきエクスポートして保管し、新しい端末でインポートしてください。</div>
+  </div>
+
+  <div class="panel">
+    <h4>MyShelfを人に教える</h4>
+    <div class="note" style="margin:0 0 14px">アプリそのものを紹介できます。あなたの記録は送られません。</div>
     <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
       ${navigator.share?`<button class="btn small accent" onclick="shareApp()">シェアする</button>`:''}
       <button class="btn small ghost" onclick="shareAppX()">𝕏 でシェア</button>
       <button class="btn small ghost" onclick="copyShareLink()">リンクをコピー</button>
     </div>
   </div>
+
   <div class="panel">
-    <h4>データ管理（${items.length}件）</h4>
-    <div class="btnrow" style="margin-top:8px">
-      <button class="btn small ghost" onclick="exportJson()">エクスポート</button>
-      <button class="btn small ghost" onclick="$('#importfile').click()">インポート</button>
+    <h4>本棚を公開する</h4>
+    <div class="note" style="margin:0 0 14px">公開する記録を1件ずつ選んでリンクを作れます。公開するかどうか、どの記録を公開するかは利用者ご自身の判断です。<br><br>リンクには<b>作成した時点の内容</b>が入ります。あとから記録を書き直しても配布済みのリンクは古いままなので、その場合は作り直してください。<br><br>公開した内容の責任は公開したご本人にあり、運営者は公開された内容について一切の責任を負いません。リンクを知る人は誰でも閲覧できるため、第三者の権利を侵害する内容や、他人の個人情報を含む記録は公開しないでください。</div>
+    <div class="btnrow" style="margin-top:0">
+      <button class="btn small accent" onclick="openPublish('all')">公開リンクを作る</button>
     </div>
-    <input type="file" id="importfile" accept=".json" style="display:none" onchange="importJson(this)">
-    <div class="note">記録はこの端末内に保存されています。機種変更のときは、エクスポートしたJSONを新しい端末でインポートしてください。</div>
-  </div>
-  <div class="panel">
-    <h4>MyShelfについて</h4>
-    <div class="note" style="margin:0">読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノートです。記録はこの端末内にのみ保存され、公開リンクを作らないかぎり外部に送信されません。作品情報はWikipedia、関連商品は楽天のデータを利用しています。商品リンクにはアフィリエイトを含みます。</div>
   </div>`;
 }
 function exportJson(){
@@ -1079,16 +1088,36 @@ async function topProduct(it){
     return p?{t:p.title,p:p.price||'',u:p.url,i:p.img||''}:null;
   }catch(e){return null}
 }
-let pubDraft={mode:'one',id:null};
+let pubDraft={mode:'one',id:null,sel:[]};
 function openPublish(mode,id){
-  pubDraft={mode,id:id||null};
+  pubDraft={mode,id:id||null,sel:mode==='one'?[id]:items.slice(0,100).map(x=>x.id)};
   const n=lsGet('kansou_pubname','');
+  const listHtml=mode==='one'?'':`
+    <div style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="note" style="margin:0">公開する記録を選ぶ（<span id="selcount">${pubDraft.sel.length}</span>/${items.length}件）</span>
+        <span class="rm" style="font-size:.7rem;color:var(--sub);cursor:pointer;text-decoration:underline" onclick="toggleAllSel()">全て選ぶ / 解除</span>
+      </div>
+      <div class="prodscroll" style="max-height:220px;margin-top:8px">
+        ${items.slice(0,100).map(it=>`
+          <label class="selrow">
+            <input type="checkbox" data-id="${it.id}" checked onchange="onSelChange()">
+            <span class="tico">${icon(it.type,13)}</span>
+            <span class="selt">${esc(it.title)}</span>
+          </label>`).join('')}
+      </div>
+    </div>`;
   $('#modalroot').innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h3>${mode==='one'?'この記録を公開する':'棚をまるごと公開する'}</h3>
+      <h3>${mode==='one'?'この記録を公開する':'本棚を公開する'}</h3>
       <label style="display:block;font-size:.62rem;color:var(--gold);margin:0 0 7px;letter-spacing:.24em">公開名（任意）</label>
-      <input type="text" id="pubname" value="${esc(n)}" placeholder="例: yukiko" style="width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.95rem;background:transparent;font-family:var(--sans)">
-      <div class="note" style="margin-top:14px">記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。<br><br>公開した内容の責任は公開したご本人にあります。運営者は内容について責任を負いません。</div>
+      <input type="text" id="pubname" value="${esc(n)}" placeholder="例: hapila" style="width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.95rem;background:transparent;font-family:var(--sans)">
+      ${listHtml}
+      <div class="note" style="margin-top:14px">
+        記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。<br><br>
+        <b>公開されるのは「リンクを作った時点」の内容です。</b>あとから記録を書き直しても、すでに配ったリンクの中身は変わりません。最新の内容を見せたいときは、もう一度リンクを作り直して配り直してください。<br><br>
+        公開した内容の責任は公開したご本人にあります。運営者は内容について責任を負いません。
+      </div>
       <div id="publink" style="margin-top:16px"></div>
       <div class="btnrow">
         <button class="btn primary" onclick="makePublicLink()">リンクを作る</button>
@@ -1096,44 +1125,78 @@ function openPublish(mode,id){
       </div>
     </div></div>`;
 }
+function currentSel(){return [...document.querySelectorAll('.selrow input:checked')].map(i=>i.dataset.id)}
+function onSelChange(){
+  const c=$('#selcount');if(c)c.textContent=currentSel().length;
+  const box=$('#publink');if(box)box.innerHTML='';
+}
+function toggleAllSel(){
+  const boxes=[...document.querySelectorAll('.selrow input')];
+  const allOn=boxes.every(b=>b.checked);
+  boxes.forEach(b=>b.checked=!allOn);
+  onSelChange();
+}
 async function makePublicLink(){
   const box=$('#publink');if(!box)return;
-  box.innerHTML='<div class="spin">リンクを作成中…</div>';
   const name=($('#pubname')||{}).value?.trim()||'';
   lsSet('kansou_pubname',name);
+  let ids=pubDraft.mode==='one'?[pubDraft.id]:currentSel();
+  if(!ids.length){box.innerHTML='<div class="note" style="color:var(--danger)">公開する記録を1件以上選んでください。</div>';return}
+  box.innerHTML='<div class="spin">リンクを作成中…</div>';
   try{
+    const picked=ids.map(id=>items.find(x=>x.id===id)).filter(Boolean);
     let list;
     if(pubDraft.mode==='one'){
-      const it=items.find(x=>x.id===pubDraft.id);
-      if(!it)throw new Error('no item');
+      const it=picked[0];
       const one=slimItem(it,await topProduct(it));
       if(one.v&&one.v.startsWith('data:')){try{one.v=await shrinkImage(one.v,240,0.6)}catch(e){delete one.v}}
       list=[one];
     }else{
-      const src=items.slice(0,30);
-      list=await Promise.all(src.map(async it=>{
+      list=await Promise.all(picked.map(async it=>{
         const o=slimItem(it,null);
         if(o.v&&o.v.startsWith('data:')){
-          if(src.length<=5){try{o.v=await shrinkImage(o.v,200,0.55)}catch(e){delete o.v}}
+          if(picked.length<=5){try{o.v=await shrinkImage(o.v,200,0.55)}catch(e){delete o.v}}
           else delete o.v;
         }
         return o;
       }));
     }
-    const payload={v:1,n:name,i:list};
-    const packed=await packData(payload);
+    const packed=await packData({v:1,n:name,i:list});
     const url=shareUrl()+'#s='+packed;
     window._pubUrl=url;
     const long=url.length>7000;
     box.innerHTML=`
-      <div class="note" style="word-break:break-all;border:1px solid var(--line);border-radius:3px;padding:10px;background:var(--card);max-height:120px;overflow:auto">${esc(url)}</div>
+      <div class="note" id="pubshown" style="word-break:break-all;border:1px solid var(--line);border-radius:3px;padding:10px;background:var(--card);max-height:110px;overflow:auto">${esc(url)}</div>
       <div class="btnrow" style="margin-top:12px;flex-wrap:wrap;row-gap:10px">
         <button class="btn small accent" onclick="copyPublicLink()">リンクをコピー</button>
+        <button class="btn small ghost" onclick="shortenPublicLink(this)">短縮URLにする</button>
         <button class="btn small ghost" onclick="sharePublicX()">𝕏 でシェア</button>
-        <button class="btn small ghost" onclick="open(window._pubUrl,'_blank')">開いて確認</button>
+        <button class="btn small ghost" onclick="openPublicLink()">開いて確認</button>
       </div>
-      ${long?'<div class="note" style="color:var(--danger)">リンクが長いため、一部のアプリで途中で切れることがあります。公開する件数を減らすか、1件ずつの公開をおすすめします。</div>':''}`;
+      ${long?`<div class="note" style="color:var(--danger)">リンクが長い（${url.length.toLocaleString()}文字）ため、アプリによっては途中で切れることがあります。公開する記録を減らすか、短縮URLをお使いください。</div>`:''}
+      <div class="note">公開できるのは選んだ記録だけです。件数が多いとリンクが長くなるため、目安は20〜30件までです。</div>`;
   }catch(e){box.innerHTML='<div class="note">リンクを作成できませんでした。</div>'}
+}
+function openPublicLink(){
+  const u=window._pubUrl;if(!u)return;
+  const w=window.open(u,'_blank');
+  if(!w)location.href=u;
+}
+async function shortenPublicLink(btn){
+  if(!window._pubUrl)return;
+  const label=btn.textContent;btn.textContent='短縮中…';btn.disabled=true;
+  try{
+    const r=await fetch(API_BASE+'/api/shorten?url='+enc(window._pubUrl));
+    const j=await r.json();
+    if(!r.ok||!j.url)throw new Error('ng');
+    window._pubUrl=j.url;
+    const shown=$('#pubshown');if(shown)shown.textContent=j.url;
+    toast('短縮URLにしました');
+    btn.textContent='短縮済み';
+  }catch(e){
+    btn.textContent=label;btn.disabled=false;
+    toast('短縮できませんでした');
+  }
 }
 async function copyPublicLink(){
   try{await navigator.clipboard.writeText(window._pubUrl);toast('リンクをコピーしました')}
