@@ -132,6 +132,7 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .xpost .xdel{position:absolute;right:-6px;top:-6px;z-index:2;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);cursor:pointer;font-size:.85rem;line-height:1}
 .xpost .xdel:hover{color:var(--danger);border-color:var(--danger)}
 .xpost blockquote{margin:0}
+.note-embed{border:1px solid var(--line);border-radius:3px;display:block;width:100%;max-width:100%;background:var(--card)}
 .revsum{display:flex;align-items:center;gap:16px;border:1px solid var(--gold-soft);border-radius:3px;padding:16px;margin-bottom:16px;background:linear-gradient(135deg,#fdfcf8,#f7f3e9)}
 .revsum .big{font-family:var(--serif);font-size:1.9rem;font-weight:600;color:var(--gold)}
 .revsum .cnt{font-size:.76rem;color:var(--sub);line-height:1.8;letter-spacing:.04em}
@@ -381,7 +382,7 @@ function delItem(id){if(!confirm('この記録を削除しますか？'))return;
 function renderDetail(id){
   const it=items.find(x=>x.id===id);if(!it)return go('list');
   window._detailId=id;
-  const tabs=[['memo','感想'],['wiki','Wikipedia'],['review','口コミ'],['links','関連商品']]
+  const tabs=[['memo','感想'],['review','口コミ'],['links','関連商品']]
     .map(([k,l])=>`<div class="dtab ${ui.dtab===k?'on':''}" onclick="ui.dtab='${k}';renderDetail('${id}')">${l}</div>`).join('');
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
@@ -397,8 +398,7 @@ function renderDetail(id){
   <div class="dtabs">${tabs}</div>
   <div id="dpanel"></div>`;
   const p=$('#dpanel');
-  if(ui.dtab==='memo')p.innerHTML=memoPanel(it);
-  else if(ui.dtab==='wiki'){p.innerHTML=`<div class="panel"><div class="spin">Wikipediaを検索中…</div></div>`;loadWiki(it)}
+  if(ui.dtab==='memo'){p.innerHTML=memoPanel(it);loadWiki(it)}
   else if(ui.dtab==='review'){p.innerHTML=reviewPanel(it);loadRkReview(it);if((it.xPosts||[]).length)loadXWidgets()}
   else{p.innerHTML=linksPanel(it);loadRkProducts(it)}
 }
@@ -418,7 +418,8 @@ function memoPanel(it){
       <button class="btn small ghost" onclick="go('form','${it.id}')">✏️ 編集</button>
       <button class="btn small danger" onclick="delItem('${it.id}')">削除</button>
     </div>
-  </div>`;
+  </div>
+  <div id="wikibox"><div class="panel"><div class="spin">Wikipediaを検索中…</div></div></div>`;
 }
 /* ---- Wikipedia ---- */
 function wnorm(s){return (s||'').toLowerCase()
@@ -436,8 +437,9 @@ async function wikiSearch(q,mode){
   const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(mode==='intitle'?'intitle:'+q:q)}&srlimit=5&format=json&origin=*`).then(r=>r.json());
   return d.query?.search||[];
 }
+function wikiBox(){return $('#wikibox')||$('#dpanel')}
 async function loadWiki(it){
-  const p=$('#dpanel');
+  const p=wikiBox();if(!p)return;
   try{
     let pageid=it.wikiPageId;
     if(!pageid){
@@ -477,7 +479,7 @@ function wikiPickerHtml(q,msg){
 }
 function openWikiPicker(){
   const it=items.find(x=>x.id===window._detailId);if(!it)return;
-  $('#dpanel').innerHTML=wikiPickerHtml(it.wikiTitle||it.title,'この記録に紐づけるWikipedia記事を選び直せます。');
+  wikiBox().innerHTML=wikiPickerHtml(it.wikiTitle||it.title,'この記録に紐づけるWikipedia記事を選び直せます。');
   wikiPick();
 }
 async function wikiPick(){
@@ -503,7 +505,7 @@ function wikiChoose(i){
   if(!h||!it)return;
   it.wikiTitle=h.title;it.wikiPageId=h.pageid;it.updatedAt=Date.now();
   saveItems();toast('Wikipedia記事を設定しました');
-  renderDetail(it.id);
+  loadWiki(it);
 }
 /* ---- reviews ---- */
 function reviewPanel(it){
@@ -521,7 +523,14 @@ function reviewPanel(it){
   };
   const links=[['noteの感想記事（人気順）',noteUrl],['Amazonのレビュー',azUrl],...perType[it.type]];
   const posts=it.xPosts||[];
+  const notes=it.notePosts||[];
   return `<div class="panel">
+    <h4>各サイトの口コミ</h4>
+    <div id="rkrev"></div>
+    <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
+    <div class="note">※ 各サイトはレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。数値評価を取得できるのは楽天のみです。</div>
+  </div>
+  <div class="panel">
     <h4>𝕏 のみんなの感想</h4>
     <div class="btnrow" style="margin-top:0;margin-bottom:14px">
       <button class="btn small accent" onclick="window.open('${xFav}','_blank')">いいねが多い感想を探す →</button>
@@ -538,10 +547,20 @@ function reviewPanel(it){
     <div id="xlist" style="margin-top:16px">${posts.length?posts.map((u,i)=>xEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
   </div>
   <div class="panel">
-    <h4>各サイトの口コミ</h4>
-    <div id="rkrev"></div>
-    <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
-    <div class="note">※ 各サイトはレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。数値評価を取得できるのは楽天のみです。</div>
+    <h4>note の感想記事</h4>
+    <div class="btnrow" style="margin-top:0;margin-bottom:14px">
+      <button class="btn small accent" onclick="window.open('${noteUrl}','_blank')">note で感想記事を探す →</button>
+    </div>
+    <div class="xadd">
+      <textarea id="nturl" rows="2" placeholder="記事のURLを貼り付け（複数まとめてOK）"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addNotePost()}"></textarea>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="btn small ghost" onclick="pasteNotePost()">貼り付け</button>
+        <button class="btn small ghost" onclick="addNotePost()">追加</button>
+      </div>
+    </div>
+    <div class="note" style="margin-top:8px">note記事のURL（https://note.com/…/n/…）を貼ると、記事カードが読める形で表示されます。</div>
+    <div id="ntlist" style="margin-top:16px">${notes.length?notes.map((u,i)=>noteEmbedHtml(u,i)).join(''):'<div class="note">まだ記事が登録されていません。</div>'}</div>
   </div>`;
 }
 async function loadRkReview(it){
@@ -557,6 +576,45 @@ async function loadRkReview(it){
       <div class="cnt">楽天レビュー ${top.revc}件の平均評価<br><a href="${top.url}" target="_blank" rel="noopener" style="color:var(--gold)">レビューを読む →</a></div>
     </div>`;
   }catch(e){el.innerHTML=''}
+}
+/* ---- note記事の埋め込み ---- */
+function noteId(u){const m=String(u||'').match(/note\.com\/[^\/\s]+\/n\/(n[0-9a-zA-Z]+)/);return m?m[1]:''}
+function noteExtract(text){
+  const re=/https?:\/\/note\.com\/[^\/\s]+\/n\/n[0-9a-zA-Z]+/g;
+  return [...new Set((String(text||'').match(re)||[]))];
+}
+function noteEmbedHtml(url,i){
+  const id=noteId(url);
+  if(!id)return '';
+  return `<div class="xpost">
+    <button class="xdel" onclick="delNotePost(${i})" aria-label="削除">×</button>
+    <iframe class="note-embed" src="https://note.com/embed/notes/${id}" height="400" loading="lazy" title="note記事"></iframe>
+  </div>`;
+}
+function addNotePost(text){
+  const box=$('#nturl');
+  const src=text!==undefined?text:(box?box.value:'');
+  const urls=noteExtract(src);
+  if(!urls.length){toast('note記事のURLが見つかりません');return}
+  const it=items.find(x=>x.id===window._detailId);if(!it)return;
+  it.notePosts=it.notePosts||[];
+  let added=0;
+  urls.forEach(u=>{if(!it.notePosts.includes(u)){it.notePosts.push(u);added++}});
+  if(!added){toast('すでに追加されています');return}
+  it.updatedAt=Date.now();saveItems();
+  toast(added>1?`${added}件の記事を追加しました`:'記事を追加しました');
+  renderDetail(it.id);
+}
+async function pasteNotePost(){
+  try{
+    const t=await navigator.clipboard.readText();
+    if(!noteExtract(t).length){const b=$('#nturl');if(b)b.value=t;toast('note記事のURLが見つかりません');return}
+    addNotePost(t);
+  }catch(e){toast('貼り付けできませんでした。欄に直接貼ってください')}
+}
+function delNotePost(i){
+  const it=items.find(x=>x.id===window._detailId);if(!it||!it.notePosts)return;
+  it.notePosts.splice(i,1);it.updatedAt=Date.now();saveItems();renderDetail(it.id);
 }
 /* ---- X（旧Twitter）投稿の埋め込み ---- */
 function xEmbedHtml(url,i){
