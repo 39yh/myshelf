@@ -7,6 +7,21 @@
 <title>MyShelf — 本・映画・美術館の感想ノート</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<meta name="description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MyShelf">
+<meta property="og:title" content="MyShelf — 本・映画・美術館の感想ノート">
+<meta property="og:description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta property="og:url" content="https://myshelf-two.vercel.app/">
+<meta property="og:image" content="https://myshelf-two.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MyShelf — 本・映画・美術館の感想ノート">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MyShelf — 本・映画・美術館の感想ノート">
+<meta name="twitter:description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta name="twitter:image" content="https://myshelf-two.vercel.app/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Shippori+Mincho+B1:wght@500;600;700&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
@@ -144,6 +159,9 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .chiprow{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:transparent;border-radius:2px;padding:9px 16px;font-size:.78rem;cursor:pointer;color:var(--sub);letter-spacing:.1em;transition:all .2s}
 .chip.on{border-color:var(--gold);color:var(--gold);font-weight:500}
+.xcount{font-size:.72rem;color:var(--sub);text-align:right;margin-top:6px;letter-spacing:.04em}
+.xcount.near{color:var(--gold)}
+.xcount.over{color:var(--danger)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:108px;background:var(--ink);color:#f4f1ea;padding:12px 26px;border-radius:2px;font-size:.8rem;z-index:99;opacity:0;transition:opacity .3s;pointer-events:none;letter-spacing:.1em;border-bottom:2px solid var(--gold)}
 .toast.show{opacity:1}
 .backlink{color:var(--sub);font-size:.72rem;cursor:pointer;background:none;border:none;padding:4px 0;margin-bottom:10px;letter-spacing:.2em;font-family:var(--sans);text-transform:uppercase}
@@ -743,17 +761,41 @@ async function loadRkProducts(it){
   }catch(e){el.innerHTML=`<div class="spin">楽天APIに接続できませんでした。アプリIDをご確認ください。</div>`}
 }
 /* ============ share / AI ============ */
-function xWeight(str){let n=0;for(const ch of String(str||'')){n+=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(ch)?2:1}return n}
-function xTrim(str,limit){
-  const max=limit||280;
-  if(xWeight(str)<=max)return str;
-  let out='';let n=0;
-  for(const ch of String(str)){
-    const w=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(ch)?2:1;
-    if(n+w>max-2)break;
-    out+=ch;n+=w;
+/* X（旧Twitter）の公式カウント仕様に準拠
+   - 文字の重み: U+0000〜U+10FF などは1、それ以外（日本語・絵文字など）は2
+   - URLは実際の長さに関わらず23としてカウント（t.coに置換されるため）
+   - 上限は280ユニット（日本語のみなら140文字相当） */
+const X_MAX=280, X_URL=23;
+function xCharWeight(cp){
+  return (cp<=4351||(cp>=8192&&cp<=8205)||(cp>=8208&&cp<=8223)||(cp>=8242&&cp<=8247))?1:2;
+}
+function xUnits(str){
+  let n=0;
+  const masked=String(str||'').replace(/https?:\/\/\S+/g,'\u0001');
+  for(const ch of masked){
+    if(ch==='\u0001'){n+=X_URL;continue}
+    n+=xCharWeight(ch.codePointAt(0));
   }
-  return out+'…';
+  return n;
+}
+function xRemaining(str){return X_MAX-xUnits(str)}
+/* 本文＋末尾（リンク等）が上限に収まるよう本文だけを詰める */
+function xFit(body,tail){
+  const t=tail||'';
+  const max=X_MAX-xUnits(t);
+  const b=String(body||'');
+  if(xUnits(b)<=max)return b+t;
+  let out='',n=0;
+  const ELL='…',ELLW=xUnits(ELL);
+  const masked=b.replace(/https?:\/\/\S+/g,()=>'\u0001');
+  let idx=0;const urls=b.match(/https?:\/\/\S+/g)||[];
+  for(const ch of masked){
+    const w=ch==='\u0001'?X_URL:xCharWeight(ch.codePointAt(0));
+    if(n+w>max-ELLW)break;
+    out+=ch==='\u0001'?urls[idx++]:ch;
+    n+=w;
+  }
+  return out.replace(/\s+$/,'')+ELL+t;
 }
 /* 関連商品の先頭アイテム（アフィリエイトURL）を末尾に添える */
 async function affiliateTail(it,mode){
@@ -780,11 +822,11 @@ function baseText(it){
 async function postX(id){
   const it=items.find(x=>x.id===id);
   const tail=await affiliateTail(it,'x');
-  const text=xTrim(baseText(it),tail?252:280)+tail;
+  const text=xFit(baseText(it),tail);
   open(`https://twitter.com/intent/tweet?text=${enc(text)}`,'_blank');
 }
 let ai={itemId:null,mode:'x',text:''};
-function openAiModal(id){ai={itemId:id,mode:'x',text:''};drawAiModal();runFormat()}
+function openAiModal(id){ai={itemId:id,mode:'x',text:''};drawAiModal();updateXCount();runFormat()}
 function drawAiModal(){
   $('#modalroot').innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeModal()">
     <div class="modal">
@@ -793,7 +835,8 @@ function drawAiModal(){
         <button class="chip ${ai.mode==='x'?'on':''}" onclick="ai.mode='x';drawAiModal();runFormat()">𝕏 投稿用（短文）</button>
         <button class="chip ${ai.mode==='note'?'on':''}" onclick="ai.mode='note';drawAiModal();runFormat()">note記事用（長文）</button>
       </div>
-      <textarea id="aitext">${esc(ai.text)}</textarea>
+      <textarea id="aitext" oninput="updateXCount()">${esc(ai.text)}</textarea>
+      ${ai.mode==='x'?`<div class="xcount" id="xcount"></div>`:''}
       <div class="note" id="ainote">${siteCfg.ai?'AIが感想メモを投稿用に整えています。':'感想メモを定型で整えています。'}</div>
       <div class="btnrow">
         ${ai.mode==='x'
@@ -804,6 +847,14 @@ function drawAiModal(){
     </div></div>`;
 }
 function closeModal(){$('#modalroot').innerHTML=''}
+function updateXCount(){
+  const el=$('#xcount');if(!el)return;
+  const t=($('#aitext')||{}).value||'';
+  const left=xRemaining(t);
+  const over=left<0;
+  el.className='xcount'+(over?' over':left<=20?' near':'');
+  el.textContent=over?`${-left} 文字ぶん超えています（自動で調整して投稿します）`:`残り ${left} 文字ぶん`;
+}
 async function runFormat(){
   const it=items.find(x=>x.id===ai.itemId);
   if(siteCfg.ai){
@@ -812,14 +863,16 @@ async function runFormat(){
   }else{ai.text=templateFormat(it,ai.mode)}
   const tail=await affiliateTail(it,ai.mode);
   if(tail&&ai.text.indexOf(tail.trim().split('\n').pop())<0){
-    if(ai.mode==='x')ai.text=xTrim(ai.text,252)+tail;
+    if(ai.mode==='x')ai.text=xFit(ai.text,tail);
     else ai.text=ai.text.replace(/\s+$/,'')+tail;
   }
+  if(ai.mode==='x')ai.text=xFit(ai.text,'');
   const ta=$('#aitext');if(ta)ta.value=ai.text;
+  updateXCount();
 }
 function templateFormat(it,mode){
   const T=TYPES[it.type];
-  if(mode==='x')return xTrim(baseText(it),252);
+  if(mode==='x')return baseText(it);
   const verb=it.type==='book'?'読了':it.type==='movie'?'鑑賞':'訪問';
   return `# ${T.emoji}『${it.title}』を${verb}して\n\n`+
     `${fmtDate(it.date)}、${it.creator?`${it.creator}の`:''}『${it.title}』を${verb}しました。評価は${stars(it.rating||0)}です。\n\n`+
@@ -869,7 +922,10 @@ async function aiFormat(it,mode){
   if(!r.ok||!j.text){if(r.status===503)siteCfg.ai=false;throw new Error(j.error||'ai')}
   return j.text;
 }
-function sendToX(){let t=$('#aitext').value;open(`https://twitter.com/intent/tweet?text=${enc(t)}`,'_blank')}
+function sendToX(){
+  const t=xFit($('#aitext').value,'');
+  open(`https://twitter.com/intent/tweet?text=${enc(t)}`,'_blank');
+}
 async function sendToNote(){
   const t=$('#aitext').value;
   try{await navigator.clipboard.writeText(t)}catch(e){}
@@ -924,7 +980,16 @@ function shareUrl(){return location.origin+location.pathname.replace(/index\.htm
 function shareText(){return 'MyShelf — 読んだ本・観た映画・訪れた美術館の感想を残せるノート'}
 async function shareApp(){
   try{
-    await navigator.share({title:'MyShelf',text:shareText(),url:shareUrl()});
+    const data={title:'MyShelf',text:shareText(),url:shareUrl()};
+    try{
+      const res=await fetch('og.png');
+      if(res.ok){
+        const blob=await res.blob();
+        const file=new File([blob],'myshelf.png',{type:'image/png'});
+        if(navigator.canShare&&navigator.canShare({files:[file]}))data.files=[file];
+      }
+    }catch(e2){}
+    await navigator.share(data);
   }catch(e){
     if(e&&e.name==='AbortError')return;
     copyShareLink();
