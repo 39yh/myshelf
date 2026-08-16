@@ -7,11 +7,11 @@
 <title>MyShelf — 本・映画・美術館の感想ノート</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta name="description" content="読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノート">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MyShelf">
 <meta property="og:title" content="MyShelf — 本・映画・美術館の感想ノート">
-<meta property="og:description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta property="og:description" content="読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノート">
 <meta property="og:url" content="https://myshelf-two.vercel.app/">
 <meta property="og:image" content="https://myshelf-two.vercel.app/og.png">
 <meta property="og:image:width" content="1200">
@@ -20,7 +20,7 @@
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MyShelf — 本・映画・美術館の感想ノート">
-<meta name="twitter:description" content="読んだ本・観た映画・訪れた美術館の記録帳。作品情報・口コミ・関連商品まで、ひとつの画面で。">
+<meta name="twitter:description" content="読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノート">
 <meta name="twitter:image" content="https://myshelf-two.vercel.app/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -292,7 +292,11 @@ function renderForm(id){
       <div id="aclist"></div>
     </div>
     <input type="hidden" id="f_cover" value="${esc(it?.cover)}">
+    <input type="file" id="f_img" accept="image/*" style="display:none" onchange="pickCoverFile(this)">
     <div id="coverprev">${it?.cover?coverPrevHtml(it.cover):''}</div>
+    <div class="btnrow" style="margin-top:10px">
+      <button type="button" class="btn small ghost" onclick="$('#f_img').click()">カバー画像を選ぶ</button>
+    </div>
     <label id="creatorlabel">${creatorLabel(formType)}</label>
     <div class="acwrap">
       <input type="text" id="f_creator" value="${esc(it?.creator)}" placeholder="タップするとタイトルを参考に候補を表示" onfocus="onCreatorFocus()" oninput="hideAcc()" onblur="setTimeout(hideAcc,250)">
@@ -316,6 +320,31 @@ function setType(t){formType=t;document.querySelectorAll('#typesel button').forE
 function setStar(n){window._star=n;paintStars()}
 function paintStars(){document.querySelectorAll('#starinput span').forEach(s=>s.classList.toggle('lit',+s.dataset.n<=window._star))}
 function coverPrevHtml(u){return `<div class="coverprev"><img src="${esc(u)}" alt="カバー"><span class="rm" onclick="clearCover()">カバーを外す</span></div>`}
+/* 画像を端末から選んで縮小し、カバーとして保存（美術展など書影が無いとき用） */
+function shrinkImage(src,maxW,quality){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1,maxW/img.width);
+      const w=Math.round(img.width*scale),h=Math.round(img.height*scale);
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);
+      cx.drawImage(img,0,0,w,h);
+      res(cv.toDataURL('image/jpeg',quality||0.75));
+    };
+    img.onerror=rej;img.src=src;
+  });
+}
+async function pickCoverFile(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  if(!/^image\//.test(f.type)){toast('画像ファイルを選んでください');return}
+  try{
+    const raw=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+    const small=await shrinkImage(raw,480,0.75);
+    setCover(small);toast('カバー画像を設定しました');
+  }catch(e){toast('画像を読み込めませんでした')}
+  input.value='';
+}
 function setCover(u){if(!u)return;const f=$('#f_cover');if(!f)return;f.value=u;$('#coverprev').innerHTML=coverPrevHtml(u)}
 function clearCover(){$('#f_cover').value='';$('#coverprev').innerHTML=''}
 /* --- title autocomplete --- */
@@ -944,7 +973,7 @@ function renderSettings(){
   <button class="backlink" onclick="go('list')">← Back</button>
   <div class="panel">
     <h4>本棚を公開</h4>
-    <div class="note" style="margin:0 0 14px">自分の記録だけをまとめた公開ページのリンクを作れます。</div>
+    <div class="note" style="margin:0 0 14px">自分の記録だけをまとめた公開ページのリンクを作れます。公開するかどうか、どの記録を公開するかは利用者ご自身の判断です。<br><br>公開した内容の責任は公開したご本人にあり、運営者は公開された内容について一切の責任を負いません。リンクを知る人は誰でも閲覧できるため、第三者の権利を侵害する内容や、他人の個人情報を含む記録は公開しないでください。</div>
     <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
       <button class="btn small accent" onclick="openPublish('all')">公開リンクを作る</button>
     </div>
@@ -969,7 +998,7 @@ function renderSettings(){
   </div>
   <div class="panel">
     <h4>MyShelfについて</h4>
-    <div class="note" style="margin:0">読んだ本・観た映画・訪れた美術館の記録帳です。作品情報はWikipedia、関連商品は楽天のデータを利用しています。商品リンクにはアフィリエイトを含みます。</div>
+    <div class="note" style="margin:0">読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノートです。記録はこの端末内にのみ保存され、公開リンクを作らないかぎり外部に送信されません。作品情報はWikipedia、関連商品は楽天のデータを利用しています。商品リンクにはアフィリエイトを含みます。</div>
   </div>`;
 }
 function exportJson(){
@@ -990,7 +1019,7 @@ function importJson(inp){
 }
 /* ============ アプリのシェア ============ */
 function shareUrl(){return location.origin+location.pathname.replace(/index\.html$/,'')}
-function shareText(){return 'MyShelf — 読んだ本・観た映画・訪れた美術館の感想を残せるノート'}
+function shareText(){return 'MyShelf — 読んだ本・観た映画や美術館の感想を自分の端末内だけに残せるノート'}
 async function shareApp(){
   try{
     const data={title:'MyShelf',text:shareText(),url:shareUrl()};
@@ -1061,7 +1090,7 @@ function openPublish(mode,id){
       <h3>${mode==='one'?'この記録を公開する':'棚をまるごと公開する'}</h3>
       <label style="display:block;font-size:.62rem;color:var(--gold);margin:0 0 7px;letter-spacing:.24em">公開名（任意）</label>
       <input type="text" id="pubname" value="${esc(n)}" placeholder="例: yukiko" style="width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.95rem;background:transparent;font-family:var(--sans)">
-      <div class="note" style="margin-top:14px">記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。</div>
+      <div class="note" style="margin-top:14px">記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。<br><br>公開した内容の責任は公開したご本人にあります。運営者は内容について責任を負いません。</div>
       <div id="publink" style="margin-top:16px"></div>
       <div class="btnrow">
         <button class="btn primary" onclick="makePublicLink()">リンクを作る</button>
@@ -1079,10 +1108,19 @@ async function makePublicLink(){
     if(pubDraft.mode==='one'){
       const it=items.find(x=>x.id===pubDraft.id);
       if(!it)throw new Error('no item');
-      list=[slimItem(it,await topProduct(it))];
+      const one=slimItem(it,await topProduct(it));
+      if(one.v&&one.v.startsWith('data:')){try{one.v=await shrinkImage(one.v,240,0.6)}catch(e){delete one.v}}
+      list=[one];
     }else{
       const src=items.slice(0,30);
-      list=src.map(it=>slimItem(it,null));
+      list=await Promise.all(src.map(async it=>{
+        const o=slimItem(it,null);
+        if(o.v&&o.v.startsWith('data:')){
+          if(src.length<=5){try{o.v=await shrinkImage(o.v,200,0.55)}catch(e){delete o.v}}
+          else delete o.v;
+        }
+        return o;
+      }));
     }
     const payload={v:1,n:name,i:list};
     const packed=await packData(payload);
@@ -1127,7 +1165,7 @@ function renderPublic(){
     </div>
     ${list.map(pubCard).join('')}
     <div class="panel" style="text-align:center">
-      <div class="note" style="margin:0 0 14px">この本棚はMyShelfで作られています。</div>
+      <div class="note" style="margin:0 0 14px">この本棚はMyShelfで作られています。<br>掲載内容は公開した本人によるもので、運営者は内容について責任を負いません。</div>
       <div class="btnrow" style="margin-top:0"><button class="btn primary" onclick="location.hash='';location.reload()">自分の本棚をつくる</button></div>
     </div>`;
   if(list.some(x=>(x.s||[]).some(xValid)))loadXWidgets('#view');
