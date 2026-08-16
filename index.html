@@ -126,7 +126,7 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .prod .pp{font-size:.84rem;color:var(--ink);font-weight:500;margin-top:4px;letter-spacing:.05em}
 .prod .pr{font-size:.68rem;color:var(--gold);font-weight:400;margin-left:8px}
 .xadd{display:block}
-.xadd textarea{width:100%;border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:.8rem;background:var(--card);font-family:var(--sans);resize:vertical;line-height:1.7}
+.xadd textarea{width:100%;border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:.8rem;background:var(--card);font-family:var(--sans);resize:vertical;line-height:1.6;min-height:0;height:38px;white-space:nowrap;overflow-x:auto}
 .xadd textarea:focus{outline:none;border-color:var(--gold)}
 .xpost{position:relative;margin-bottom:10px}
 .xpost .xdel{position:absolute;right:-6px;top:-6px;z-index:2;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);cursor:pointer;font-size:.85rem;line-height:1}
@@ -382,7 +382,7 @@ function delItem(id){if(!confirm('この記録を削除しますか？'))return;
 function renderDetail(id){
   const it=items.find(x=>x.id===id);if(!it)return go('list');
   window._detailId=id;
-  const tabs=[['memo','感想'],['review','口コミ'],['links','関連商品']]
+  const tabs=[['memo','感想'],['wiki','Wikipedia'],['review','口コミ'],['links','関連商品']]
     .map(([k,l])=>`<div class="dtab ${ui.dtab===k?'on':''}" onclick="ui.dtab='${k}';renderDetail('${id}')">${l}</div>`).join('');
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
@@ -398,7 +398,8 @@ function renderDetail(id){
   <div class="dtabs">${tabs}</div>
   <div id="dpanel"></div>`;
   const p=$('#dpanel');
-  if(ui.dtab==='memo'){p.innerHTML=memoPanel(it);loadWiki(it)}
+  if(ui.dtab==='memo'){p.innerHTML=memoPanel(it);if((it.myPosts||[]).some(xValid))loadXWidgets('#mylist')}
+  else if(ui.dtab==='wiki'){p.innerHTML=`<div id="wikibox"><div class="panel"><div class="spin">Wikipediaを検索中…</div></div></div>`;loadWiki(it)}
   else if(ui.dtab==='review'){p.innerHTML=reviewPanel(it);loadRkReview(it);if((it.xPosts||[]).length)loadXWidgets()}
   else{p.innerHTML=linksPanel(it);loadRkProducts(it)}
 }
@@ -419,7 +420,57 @@ function memoPanel(it){
       <button class="btn small danger" onclick="delItem('${it.id}')">削除</button>
     </div>
   </div>
-  <div id="wikibox"><div class="panel"><div class="spin">Wikipediaを検索中…</div></div></div>`;
+  <div class="panel">
+    <h4>自分の投稿</h4>
+    <div class="xadd">
+      <textarea id="myurl" rows="1" placeholder="投稿した𝕏・noteのURLを貼り付け（複数まとめてOK）"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addMyPost()}"></textarea>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="btn small ghost" onclick="pasteMyPost()">貼り付け</button>
+        <button class="btn small ghost" onclick="addMyPost()">追加</button>
+      </div>
+    </div>
+    <div id="mylist" style="margin-top:16px">${(it.myPosts||[]).length?(it.myPosts||[]).map((u,i)=>myEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
+  </div>`;
+}
+/* ---- 自分の投稿（𝕏 / note 両対応） ---- */
+function myEmbedHtml(url,i){
+  if(xValid(url))return `<div class="xpost">
+    <button class="xdel" onclick="delMyPost(${i})" aria-label="削除">×</button>
+    <blockquote class="twitter-tweet" data-lang="ja" data-dnt="true"><a href="${esc(url)}"></a></blockquote>
+  </div>`;
+  const id=noteId(url);
+  if(id)return `<div class="xpost">
+    <button class="xdel" onclick="delMyPost(${i})" aria-label="削除">×</button>
+    <iframe class="note-embed" src="https://note.com/embed/notes/${id}" height="400" loading="lazy" title="note記事"></iframe>
+  </div>`;
+  return '';
+}
+function addMyPost(text){
+  const box=$('#myurl');
+  const src=text!==undefined?text:(box?box.value:'');
+  const urls=[...xExtract(src),...noteExtract(src)];
+  if(!urls.length){toast('𝕏・noteのURLが見つかりません');return}
+  const it=items.find(x=>x.id===window._detailId);if(!it)return;
+  it.myPosts=it.myPosts||[];
+  let added=0;
+  urls.forEach(u=>{if(!it.myPosts.includes(u)){it.myPosts.push(u);added++}});
+  if(!added){toast('すでに追加されています');return}
+  it.updatedAt=Date.now();saveItems();
+  toast(added>1?`${added}件を追加しました`:'投稿を追加しました');
+  renderDetail(it.id);
+}
+async function pasteMyPost(){
+  try{
+    const t=await navigator.clipboard.readText();
+    const urls=[...xExtract(t),...noteExtract(t)];
+    if(!urls.length){const b=$('#myurl');if(b)b.value=t;toast('𝕏・noteのURLが見つかりません');return}
+    addMyPost(t);
+  }catch(e){toast('貼り付けできませんでした。欄に直接貼ってください')}
+}
+function delMyPost(i){
+  const it=items.find(x=>x.id===window._detailId);if(!it||!it.myPosts)return;
+  it.myPosts.splice(i,1);it.updatedAt=Date.now();saveItems();renderDetail(it.id);
 }
 /* ---- Wikipedia ---- */
 function wnorm(s){return (s||'').toLowerCase()
@@ -528,7 +579,6 @@ function reviewPanel(it){
     <h4>各サイトの口コミ</h4>
     <div id="rkrev"></div>
     <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
-    <div class="note">※ 各サイトはレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。数値評価を取得できるのは楽天のみです。</div>
   </div>
   <div class="panel">
     <h4>𝕏 のみんなの感想</h4>
@@ -536,14 +586,13 @@ function reviewPanel(it){
       <button class="btn small accent" onclick="window.open('${xFav}','_blank')">いいねが多い感想を探す →</button>
     </div>
     <div class="xadd">
-      <textarea id="xurl" rows="2" placeholder="投稿のURLを貼り付け（複数まとめてOK）"
+      <textarea id="xurl" rows="1" placeholder="気に入った投稿を登録しておく（URL貼付）"
         onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addXPost()}"></textarea>
       <div class="btnrow" style="margin-top:10px">
         <button class="btn small ghost" onclick="pasteXPost()">貼り付け</button>
         <button class="btn small ghost" onclick="addXPost()">追加</button>
       </div>
     </div>
-    <div class="note" style="margin-top:8px">気に入った投稿の「リンクをコピー」→「貼り付け」を押すだけで追加されます。改行で並べれば3件まとめて追加できます（3件ほどあると読み応えのあるページになります）。</div>
     <div id="xlist" style="margin-top:16px">${posts.length?posts.map((u,i)=>xEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
   </div>
   <div class="panel">
@@ -552,14 +601,13 @@ function reviewPanel(it){
       <button class="btn small accent" onclick="window.open('${noteUrl}','_blank')">note で感想記事を探す →</button>
     </div>
     <div class="xadd">
-      <textarea id="nturl" rows="2" placeholder="記事のURLを貼り付け（複数まとめてOK）"
+      <textarea id="nturl" rows="1" placeholder="記事のURLを貼り付け（複数まとめてOK）"
         onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addNotePost()}"></textarea>
       <div class="btnrow" style="margin-top:10px">
         <button class="btn small ghost" onclick="pasteNotePost()">貼り付け</button>
         <button class="btn small ghost" onclick="addNotePost()">追加</button>
       </div>
     </div>
-    <div class="note" style="margin-top:8px">note記事のURL（https://note.com/…/n/…）を貼ると、記事カードが読める形で表示されます。</div>
     <div id="ntlist" style="margin-top:16px">${notes.length?notes.map((u,i)=>noteEmbedHtml(u,i)).join(''):'<div class="note">まだ記事が登録されていません。</div>'}</div>
   </div>`;
 }
@@ -624,8 +672,9 @@ function xEmbedHtml(url,i){
   </div>`;
 }
 function xValid(u){return /^https?:\/\/(twitter\.com|x\.com)\/[^\/]+\/status\/\d+/.test(u)}
-function loadXWidgets(){
-  const render=()=>{if(window.twttr&&twttr.widgets)twttr.widgets.load($('#xlist'))};
+function loadXWidgets(sel){
+  const target=sel||'#xlist';
+  const render=()=>{if(window.twttr&&twttr.widgets)twttr.widgets.load($(target)||undefined)};
   if(window.twttr&&window.twttr.widgets)return render();
   if(document.getElementById('twscript'))return setTimeout(render,900);
   const s=document.createElement('script');
@@ -694,6 +743,32 @@ async function loadRkProducts(it){
   }catch(e){el.innerHTML=`<div class="spin">楽天APIに接続できませんでした。アプリIDをご確認ください。</div>`}
 }
 /* ============ share / AI ============ */
+function xWeight(str){let n=0;for(const ch of String(str||'')){n+=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(ch)?2:1}return n}
+function xTrim(str,limit){
+  const max=limit||280;
+  if(xWeight(str)<=max)return str;
+  let out='';let n=0;
+  for(const ch of String(str)){
+    const w=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7FF\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(ch)?2:1;
+    if(n+w>max-2)break;
+    out+=ch;n+=w;
+  }
+  return out+'…';
+}
+/* 関連商品の先頭アイテム（アフィリエイトURL）を末尾に添える */
+async function affiliateTail(it,mode){
+  if(!rkKey())return '';
+  try{
+    const d=await rkFetch(it.type,it.title,1);
+    const p=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(x=>x.title&&x.url)[0];
+    if(!p)return '';
+    if(mode==='note'){
+      const price=p.price?`（${(+p.price).toLocaleString()}円）`:'';
+      return `\n\n---\n\n▼ この作品\n[${p.title}${price}](${p.url})\n\n※ 商品リンクにはアフィリエイトを含みます。`;
+    }
+    return `\n${p.url}`;
+  }catch(e){return ''}
+}
 function baseText(it){
   const T=TYPES[it.type];
   let s=`${T.emoji}『${it.title}』${it.creator?`（${it.creator}）`:''} ${stars(it.rating||0)}\n`;
@@ -702,10 +777,10 @@ function baseText(it){
   s+=T.hash+' #MyShelf';
   return s;
 }
-function postX(id){
+async function postX(id){
   const it=items.find(x=>x.id===id);
-  let text=baseText(it);
-  if(text.length>270)text=text.slice(0,267)+'…';
+  const tail=await affiliateTail(it,'x');
+  const text=xTrim(baseText(it),tail?252:280)+tail;
   open(`https://twitter.com/intent/tweet?text=${enc(text)}`,'_blank');
 }
 let ai={itemId:null,mode:'x',text:''};
@@ -732,14 +807,19 @@ function closeModal(){$('#modalroot').innerHTML=''}
 async function runFormat(){
   const it=items.find(x=>x.id===ai.itemId);
   if(siteCfg.ai){
-    const ta=$('#aitext');if(ta)ta.value='AIが文章を整えています…';
+    const ta=$('#aitext');if(ta)ta.value=ai.mode==='note'?'作品情報と口コミを集めてAIが記事を書いています…':'AIが文章を整えています…';
     try{ai.text=await aiFormat(it,ai.mode)}catch(e){ai.text=templateFormat(it,ai.mode);const n=$('#ainote');if(n)n.textContent='AI整形が利用できなかったため、定型の文章を表示しています。'}
   }else{ai.text=templateFormat(it,ai.mode)}
+  const tail=await affiliateTail(it,ai.mode);
+  if(tail&&ai.text.indexOf(tail.trim().split('\n').pop())<0){
+    if(ai.mode==='x')ai.text=xTrim(ai.text,252)+tail;
+    else ai.text=ai.text.replace(/\s+$/,'')+tail;
+  }
   const ta=$('#aitext');if(ta)ta.value=ai.text;
 }
 function templateFormat(it,mode){
   const T=TYPES[it.type];
-  if(mode==='x'){let s=baseText(it);if(s.length>270)s=s.slice(0,267)+'…';return s}
+  if(mode==='x')return xTrim(baseText(it),252);
   const verb=it.type==='book'?'読了':it.type==='movie'?'鑑賞':'訪問';
   return `# ${T.emoji}『${it.title}』を${verb}して\n\n`+
     `${fmtDate(it.date)}、${it.creator?`${it.creator}の`:''}『${it.title}』を${verb}しました。評価は${stars(it.rating||0)}です。\n\n`+
@@ -747,9 +827,44 @@ function templateFormat(it,mode){
     (it.memo?`## 感想\n\n${it.memo}\n\n`:'')+
     `${(it.tags||[]).map(t=>'#'+t).join(' ')}\n${T.hash} #MyShelf`;
 }
+async function wikiExtractFor(it){
+  try{
+    let pid=it.wikiPageId;
+    if(!pid){
+      const q=it.wikiTitle||it.title;
+      let hits=await wikiSearch(q,'intitle');
+      let h=hits.find(x=>wRelevant(x.title,q));
+      if(!h){hits=await wikiSearch(q);h=hits.find(x=>wRelevant(x.title,q))}
+      pid=h&&h.pageid;
+    }
+    if(!pid)return '';
+    const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&pageids=${pid}&prop=extracts&exintro&explaintext&format=json&origin=*`).then(r=>r.json());
+    return (d.query.pages[pid].extract||'').slice(0,700);
+  }catch(e){return ''}
+}
+async function aiContext(it){
+  const ctx={};
+  const jobs=[];
+  jobs.push(wikiExtractFor(it).then(w=>{if(w)ctx.wiki=w}));
+  if(rkKey())jobs.push(rkFetch(it.type,it.title,30).then(d=>{
+    const top=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>+p.revc>0).sort((a,b)=>(+b.revc)-(+a.revc))[0];
+    if(top)ctx.rakuten={rating:+(+top.rev).toFixed(2),count:+top.revc};
+  }).catch(()=>{}));
+  const urls=[...(it.xPosts||[]),...(it.notePosts||[])].slice(0,3);
+  if(urls.length)jobs.push(Promise.all(urls.map(u=>
+    fetch(API_BASE+'/api/oembed?url='+enc(u)).then(r=>r.ok?r.json():null).catch(()=>null)
+  )).then(list=>{
+    const vs=list.filter(v=>v&&v.text).map(v=>v.text);
+    if(vs.length)ctx.voices=vs;
+  }).catch(()=>{}));
+  await Promise.all(jobs);
+  return ctx;
+}
 async function aiFormat(it,mode){
+  const ctx=mode==='note'?await aiContext(it):{};
   const r=await fetch(API_BASE+'/api/ai',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo})});
+    body:JSON.stringify({mode,type:TYPES[it.type].label,title:it.title,creator:it.creator,rating:it.rating,quotes:it.quotes,memo:it.memo,
+      wiki:ctx.wiki||'',rakuten:ctx.rakuten||null,voices:ctx.voices||[],reserveLink:!!rkKey()})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||!j.text){if(r.status===503)siteCfg.ai=false;throw new Error(j.error||'ai')}
   return j.text;
@@ -765,6 +880,15 @@ async function sendToNote(){
 function renderSettings(){
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
+  <div class="panel">
+    <h4>MyShelfをシェア</h4>
+    <div class="note" style="margin:0 0 14px">本や映画の記録が好きな人に、このアプリを教えられます。</div>
+    <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
+      ${navigator.share?`<button class="btn small accent" onclick="shareApp()">シェアする</button>`:''}
+      <button class="btn small ghost" onclick="shareAppX()">𝕏 でシェア</button>
+      <button class="btn small ghost" onclick="copyShareLink()">リンクをコピー</button>
+    </div>
+  </div>
   <div class="panel">
     <h4>データ管理（${items.length}件）</h4>
     <div class="btnrow" style="margin-top:8px">
@@ -794,6 +918,24 @@ function importJson(inp){
     saveItems();toast(`インポート完了（現在${items.length}件）`);renderSettings();
   }catch(e){toast('読み込めないファイルです')}};
   rd.readAsText(f);
+}
+/* ============ アプリのシェア ============ */
+function shareUrl(){return location.origin+location.pathname.replace(/index\.html$/,'')}
+function shareText(){return 'MyShelf — 読んだ本・観た映画・訪れた美術館の感想を残せるノート'}
+async function shareApp(){
+  try{
+    await navigator.share({title:'MyShelf',text:shareText(),url:shareUrl()});
+  }catch(e){
+    if(e&&e.name==='AbortError')return;
+    copyShareLink();
+  }
+}
+function shareAppX(){
+  open(`https://twitter.com/intent/tweet?text=${enc(shareText()+'\n'+shareUrl())}`,'_blank');
+}
+async function copyShareLink(){
+  try{await navigator.clipboard.writeText(shareUrl());toast('リンクをコピーしました')}
+  catch(e){toast('コピーできませんでした')}
 }
 /* ============ init ============ */
 renderList();
