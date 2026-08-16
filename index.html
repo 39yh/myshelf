@@ -25,6 +25,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:10
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 /* ===== header ===== */
 header{position:sticky;top:0;z-index:10;background:rgba(244,241,234,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:20px 20px 14px;text-align:center}
+.brand{display:inline-block;cursor:pointer;user-select:none;transition:opacity .2s}
+.brand:hover{opacity:.72}
+.brand:focus-visible{outline:1px solid var(--gold-soft);outline-offset:6px}
 .logo{font-family:var(--serif);font-size:1.9rem;font-weight:600;letter-spacing:.06em;line-height:1;color:var(--ink)}
 .logo em{font-style:italic;color:var(--gold)}
 .tagline{font-size:.55rem;letter-spacing:.5em;color:var(--sub);text-transform:uppercase;margin-top:7px;text-indent:.5em}
@@ -142,8 +145,10 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:20px 0}
 </head>
 <body>
 <header>
-  <div class="logo">My<em>Shelf</em></div>
-  <div class="tagline">Books · Films · Museums</div>
+  <div class="brand" role="button" tabindex="0" onclick="goTop()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goTop()}" aria-label="トップへ戻る">
+    <div class="logo">My<em>Shelf</em></div>
+    <div class="tagline">Books · Films · Museums</div>
+  </div>
   <button class="iconbtn" onclick="go('settings')" aria-label="設定">⚙︎</button>
 </header>
 <main id="view"></main>
@@ -201,6 +206,7 @@ function rkNorm(type,i){
   return {title:i.title,author:i.author||i.artistName||'',price:i.itemPrice,img:i.largeImageUrl||i.mediumImageUrl||'',url:i.affiliateUrl||i.itemUrl,rev:i.reviewAverage,revc:i.reviewCount};
 }
 /* ============ router ============ */
+function goTop(){ui.filter='all';ui.q='';ui.sort='new';closeModal();go('list')}
 function go(view,id){window.scrollTo(0,0);
   if(view==='list')renderList();
   else if(view==='form')renderForm(id);
