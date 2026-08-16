@@ -162,6 +162,11 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .xcount{font-size:.72rem;color:var(--sub);text-align:right;margin-top:6px;letter-spacing:.04em}
 .xcount.near{color:var(--gold)}
 .xcount.over{color:var(--danger)}
+.viewing .fab,.viewing .iconbtn{display:none}
+.pubhead{text-align:center;margin:6px 0 22px}
+.pubname{font-family:var(--jp-serif);font-size:1.25rem;font-weight:600;letter-spacing:.04em}
+.pubsub{font-size:.68rem;color:var(--sub);letter-spacing:.2em;margin-top:8px}
+.pubcard .dhead h2{font-size:1.28rem}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:108px;background:var(--ink);color:#f4f1ea;padding:12px 26px;border-radius:2px;font-size:.8rem;z-index:99;opacity:0;transition:opacity .3s;pointer-events:none;letter-spacing:.1em;border-bottom:2px solid var(--gold)}
 .toast.show{opacity:1}
 .backlink{color:var(--sub);font-size:.72rem;cursor:pointer;background:none;border:none;padding:4px 0;margin-bottom:10px;letter-spacing:.2em;font-family:var(--sans);text-transform:uppercase}
@@ -434,6 +439,7 @@ function memoPanel(it){
       <button class="btn small ghost" onclick="postX('${it.id}')">𝕏 そのまま投稿</button>
     </div>
     <div class="btnrow" style="margin-top:10px">
+      <button class="btn small ghost" onclick="openPublish('one','${it.id}')">この記録を公開</button>
       <button class="btn small ghost" onclick="go('form','${it.id}')">✏️ 編集</button>
       <button class="btn small danger" onclick="delItem('${it.id}')">削除</button>
     </div>
@@ -937,6 +943,13 @@ function renderSettings(){
   $('#view').innerHTML=`
   <button class="backlink" onclick="go('list')">← Back</button>
   <div class="panel">
+    <h4>本棚を公開</h4>
+    <div class="note" style="margin:0 0 14px">自分の記録だけをまとめた公開ページのリンクを作れます。</div>
+    <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
+      <button class="btn small accent" onclick="openPublish('all')">公開リンクを作る</button>
+    </div>
+  </div>
+  <div class="panel">
     <h4>MyShelfをシェア</h4>
     <div class="note" style="margin:0 0 14px">本や映画の記録が好きな人に、このアプリを教えられます。</div>
     <div class="btnrow" style="margin-top:0;flex-wrap:wrap;row-gap:10px">
@@ -1002,8 +1015,159 @@ async function copyShareLink(){
   try{await navigator.clipboard.writeText(shareUrl());toast('リンクをコピーしました')}
   catch(e){toast('コピーできませんでした')}
 }
+
+/* ============ 公開リンク（サーバー不要・データはURLに内包） ============ */
+function b64url(bytes){let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function unb64url(str){const b=atob(str.replace(/-/g,'+').replace(/_/g,'/'));const a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a}
+async function packData(obj){
+  const json=JSON.stringify(obj);
+  if(typeof CompressionStream==='undefined')return 'r'+b64url(new TextEncoder().encode(json));
+  const stream=new Blob([json]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return 'z'+b64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+}
+async function unpackData(str){
+  const kind=str[0],bytes=unb64url(str.slice(1));
+  if(kind==='r')return JSON.parse(new TextDecoder().decode(bytes));
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return JSON.parse(await new Response(stream).text());
+}
+function slimItem(it,product){
+  const o={y:it.type,t:it.title};
+  if(it.creator)o.c=it.creator;
+  if(it.date)o.d=it.date;
+  if(it.rating)o.r=it.rating;
+  if((it.tags||[]).length)o.g=it.tags;
+  if(it.memo)o.m=it.memo;
+  if(it.quotes)o.q=it.quotes;
+  if(it.cover)o.v=it.cover;
+  if((it.myPosts||[]).length)o.s=it.myPosts;
+  if(product)o.p=product;
+  return o;
+}
+async function topProduct(it){
+  if(!rkKey())return null;
+  try{
+    const d=await rkFetch(it.type,it.title,1);
+    const p=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(x=>x.title&&x.url)[0];
+    return p?{t:p.title,p:p.price||'',u:p.url,i:p.img||''}:null;
+  }catch(e){return null}
+}
+let pubDraft={mode:'one',id:null};
+function openPublish(mode,id){
+  pubDraft={mode,id:id||null};
+  const n=lsGet('kansou_pubname','');
+  $('#modalroot').innerHTML=`<div class="modalbg" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3>${mode==='one'?'この記録を公開する':'棚をまるごと公開する'}</h3>
+      <label style="display:block;font-size:.62rem;color:var(--gold);margin:0 0 7px;letter-spacing:.24em">公開名（任意）</label>
+      <input type="text" id="pubname" value="${esc(n)}" placeholder="例: yukiko" style="width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.95rem;background:transparent;font-family:var(--sans)">
+      <div class="note" style="margin-top:14px">記録の内容はリンクそのものに埋め込まれます。サーバーには保存されず、<b>リンクを知っている人だけ</b>が見られます。検索結果にも出ません。</div>
+      <div id="publink" style="margin-top:16px"></div>
+      <div class="btnrow">
+        <button class="btn primary" onclick="makePublicLink()">リンクを作る</button>
+        <button class="btn ghost" onclick="closeModal()">閉じる</button>
+      </div>
+    </div></div>`;
+}
+async function makePublicLink(){
+  const box=$('#publink');if(!box)return;
+  box.innerHTML='<div class="spin">リンクを作成中…</div>';
+  const name=($('#pubname')||{}).value?.trim()||'';
+  lsSet('kansou_pubname',name);
+  try{
+    let list;
+    if(pubDraft.mode==='one'){
+      const it=items.find(x=>x.id===pubDraft.id);
+      if(!it)throw new Error('no item');
+      list=[slimItem(it,await topProduct(it))];
+    }else{
+      const src=items.slice(0,30);
+      list=src.map(it=>slimItem(it,null));
+    }
+    const payload={v:1,n:name,i:list};
+    const packed=await packData(payload);
+    const url=shareUrl()+'#s='+packed;
+    window._pubUrl=url;
+    const long=url.length>7000;
+    box.innerHTML=`
+      <div class="note" style="word-break:break-all;border:1px solid var(--line);border-radius:3px;padding:10px;background:var(--card);max-height:120px;overflow:auto">${esc(url)}</div>
+      <div class="btnrow" style="margin-top:12px;flex-wrap:wrap;row-gap:10px">
+        <button class="btn small accent" onclick="copyPublicLink()">リンクをコピー</button>
+        <button class="btn small ghost" onclick="sharePublicX()">𝕏 でシェア</button>
+        <button class="btn small ghost" onclick="open(window._pubUrl,'_blank')">開いて確認</button>
+      </div>
+      ${long?'<div class="note" style="color:var(--danger)">リンクが長いため、一部のアプリで途中で切れることがあります。公開する件数を減らすか、1件ずつの公開をおすすめします。</div>':''}`;
+  }catch(e){box.innerHTML='<div class="note">リンクを作成できませんでした。</div>'}
+}
+async function copyPublicLink(){
+  try{await navigator.clipboard.writeText(window._pubUrl);toast('リンクをコピーしました')}
+  catch(e){toast('コピーできませんでした')}
+}
+function sharePublicX(){
+  const n=($('#pubname')||{}).value?.trim()||'';
+  const t=(pubDraft.mode==='one'?'読んだ本・観た映画の感想を公開しました':(n?n+'の':'')+'MyShelfを公開しました');
+  open(`https://twitter.com/intent/tweet?text=${enc(xFit(t,'\n'+window._pubUrl))}`,'_blank');
+}
+/* ---- 公開ページ（閲覧専用） ---- */
+let pubView=null;
+async function bootViewer(hash){
+  try{
+    pubView=await unpackData(hash);
+    document.body.classList.add('viewing');
+    renderPublic();
+  }catch(e){location.hash='';renderList()}
+}
+function renderPublic(){
+  const list=pubView.i||[];
+  const name=pubView.n||'';
+  $('#view').innerHTML=`
+    <div class="pubhead">
+      <div class="pubname">${name?esc(name)+' の本棚':'公開された本棚'}</div>
+      <div class="pubsub">${list.length}件の記録</div>
+    </div>
+    ${list.map(pubCard).join('')}
+    <div class="panel" style="text-align:center">
+      <div class="note" style="margin:0 0 14px">この本棚はMyShelfで作られています。</div>
+      <div class="btnrow" style="margin-top:0"><button class="btn primary" onclick="location.hash='';location.reload()">自分の本棚をつくる</button></div>
+    </div>`;
+  if(list.some(x=>(x.s||[]).some(xValid)))loadXWidgets('#view');
+}
+function pubCard(o,i){
+  const type=TYPES[o.y]?o.y:'book';
+  const posts=(o.s||[]).map((u,j)=>myPubEmbed(u)).join('');
+  const p=o.p;
+  return `<div class="panel pubcard">
+    <div class="dhead" style="margin-bottom:4px">
+      ${o.v?`<img class="dcover" src="${esc(o.v)}" alt="">`:''}
+      <div style="flex:1;min-width:0">
+        <div class="meta"><span class="tico">${icon(type,14)}</span>${TYPES[type].label}　${fmtDate(o.d||'')}</div>
+        <h2>${esc(o.t)}</h2>
+        <div class="creator">${esc(o.c||'')}</div>
+        <div class="stars" style="font-size:.95rem;margin-top:5px">${stars(o.r||0)}</div>
+      </div>
+    </div>
+    ${o.q?`<h4 style="margin-top:16px">印象に残ったフレーズ</h4><div class="quote">${esc(o.q)}</div>`:''}
+    ${o.m?`<h4>感想</h4><div class="memo-body">${esc(o.m)}</div>`:''}
+    ${(o.g||[]).map(t=>`<span class="tagchip">${esc(t)}</span>`).join('')}
+    ${posts?`<hr class="sep">${posts}`:''}
+    ${p?`<hr class="sep"><a class="prod" href="${esc(p.u)}" target="_blank" rel="noopener">
+        ${p.i?`<img src="${esc(bigImg(p.i))}" loading="lazy" alt="">`:'<div style="width:52px"></div>'}
+        <div style="flex:1;min-width:0"><div class="pt">${esc(p.t)}</div>
+        <div class="pp">${p.p?(+p.p).toLocaleString()+'円':''}</div></div></a>
+      <div class="note">※ 商品リンクにはアフィリエイトを含みます。</div>`:''}
+  </div>`;
+}
+function myPubEmbed(url){
+  if(xValid(url))return `<blockquote class="twitter-tweet" data-lang="ja" data-dnt="true"><a href="${esc(url)}"></a></blockquote>`;
+  const id=noteId(url);
+  return id?`<iframe class="note-embed" src="https://note.com/embed/notes/${id}" height="400" loading="lazy" title="note記事"></iframe>`:'';
+}
 /* ============ init ============ */
-renderList();
+if(location.hash.startsWith('#s=')){bootViewer(location.hash.slice(3))}else{renderList()}
+addEventListener('hashchange',()=>{
+  if(location.hash.startsWith('#s='))bootViewer(location.hash.slice(3));
+  else if(document.body.classList.contains('viewing'))location.reload();
+});
 (async function loadCfg(){
   for(const base of [API_BASE,'']){
     try{
