@@ -272,25 +272,30 @@ function clearCover(){$('#f_cover').value='';$('#coverprev').innerHTML=''}
 function onTitleInput(){clearTimeout(acT);const q=$('#f_title').value.trim();if(q.length<2)return hideAc();acT=setTimeout(()=>suggest(q),380)}
 async function suggest(q){
   const jobs=[wikiSuggest(q).catch(()=>[])];
-  if(rkKey()&&formType!=='museum')jobs.push(rkSuggest(q).catch(()=>[]));
+  const useRk=rkKey()&&formType!=='museum';
+  if(useRk)jobs.push(rkSuggest(q).catch(()=>[]));
   const [wk,rk]=await Promise.all(jobs);
   if($('#f_title')?.value.trim()!==q)return;
   const out=[...(rk||[]),...(wk||[])];
   window._ac=out;window._lastRk=rk||[];
-  $('#aclist').innerHTML=out.length?`<div class="aclist">${out.map((a,i)=>
+  const hint=(!rkKey()&&formType!=='museum')
+    ?`<div class="acitem" onmousedown="go('settings')"><span class="src">設定</span><span class="sub">楽天アプリIDを登録すると、書影つきのタイトル候補が表示されます →</span></div>`:'';
+  $('#aclist').innerHTML=(out.length||hint)?`<div class="aclist">${out.map((a,i)=>
     `<div class="acitem" onmousedown="pickAc(${i})">
        ${a.img?`<img src="${esc(a.img)}" alt="">`:''}
        <span class="src">${a.t==='rk'?'楽天':'Wiki'}</span>
        <span>${esc(a.title)}${a.author?` <span class="sub">／ ${esc(a.author)}</span>`:''}</span>
-     </div>`).join('')}</div>`:'';
+     </div>`).join('')+hint}</div>`:'';
 }
 function hideAc(){const el=$('#aclist');if(el)el.innerHTML=''}
-async function wikiSuggest(q){
-  const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&srlimit=5&format=json&origin=*`).then(r=>r.json());
+async function wikiSuggest(q,loose){
+  const query=loose?q:`intitle:${q}`;
+  const d=await fetch(`https://ja.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(query)}&srlimit=5&format=json&origin=*`).then(r=>r.json());
   return (d.query?.search||[]).map(s=>({t:'wk',title:s.title,pageid:s.pageid}));
 }
 async function rkSuggest(q){
   const d=await jsonp(rkSearchUrl(formType,q,5));
+  if(d.error)throw new Error(d.error);
   return (d.Items||[]).map(i=>{const n=rkNorm(formType,i);return {t:'rk',title:n.title,author:n.author,img:n.img}});
 }
 function pickAc(i){
@@ -319,7 +324,7 @@ async function onCreatorFocus(){
   const jobs=[];
   if(window._lastRk?.length)window._lastRk.forEach(x=>{if(x.author)set.set(x.author,'楽天')});
   else if(rkKey()&&formType!=='museum')jobs.push(rkSuggest(t).then(r=>r.forEach(x=>{if(x.author)set.set(x.author,'楽天')})).catch(()=>{}));
-  jobs.push(wikiSuggest(t).then(async w=>{if(w[0]){const c=await wikidataCreator(w[0].pageid);if(c)set.set(c,'Wiki')}}).catch(()=>{}));
+  jobs.push(wikiSuggest(t).then(async w=>{if(!w.length)w=await wikiSuggest(t,true);if(w[0]){const c=await wikidataCreator(w[0].pageid);if(c)set.set(c,'Wiki')}}).catch(()=>{}));
   await Promise.all(jobs);
   const out=[...set.entries()];window._acc=out;
   const el=$('#aclist2');if(!el||!out.length)return;
