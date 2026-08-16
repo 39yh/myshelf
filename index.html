@@ -125,9 +125,9 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .prod .pa{font-size:.7rem;color:var(--sub);margin-top:2px;letter-spacing:.04em}
 .prod .pp{font-size:.84rem;color:var(--ink);font-weight:500;margin-top:4px;letter-spacing:.05em}
 .prod .pr{font-size:.68rem;color:var(--gold);font-weight:400;margin-left:8px}
-.xadd{display:flex;gap:10px;align-items:center}
-.xadd input{flex:1;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.85rem;background:transparent;font-family:var(--sans)}
-.xadd input:focus{outline:none;border-color:var(--gold)}
+.xadd{display:block}
+.xadd textarea{width:100%;border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:.8rem;background:var(--card);font-family:var(--sans);resize:vertical;line-height:1.7}
+.xadd textarea:focus{outline:none;border-color:var(--gold)}
 .xpost{position:relative;margin-bottom:10px}
 .xpost .xdel{position:absolute;right:-6px;top:-6px;z-index:2;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);cursor:pointer;font-size:.85rem;line-height:1}
 .xpost .xdel:hover{color:var(--danger);border-color:var(--danger)}
@@ -508,12 +508,18 @@ function wikiChoose(i){
 /* ---- reviews ---- */
 function reviewPanel(it){
   const t=enc(it.title);
-  const xFav=`https://x.com/search?q=${t}%20min_faves%3A50&f=live`;
+  const tag=siteCfg.amazonTag?`&tag=${enc(siteCfg.amazonTag)}`:'';
+  const xFav=`https://x.com/search?q=${t}%20min_faves%3A10%20-filter%3Areplies&f=top`;
+  const noteUrl=`https://note.com/search?q=${t}&context=note&mode=search&sort=popular`;
+  const azUrl=it.type==='book'?`https://www.amazon.co.jp/s?k=${t}&i=stripbooks${tag}`
+    :it.type==='movie'?`https://www.amazon.co.jp/s?k=${t}&i=dvd${tag}`
+    :`https://www.amazon.co.jp/s?k=${t}+%E5%9B%B3%E9%8C%B2&i=stripbooks${tag}`;
   const perType={
-    book:[['読書メーターの感想',`https://bookmeter.com/search?keyword=${t}`],['ブクログのレビュー',`https://booklog.jp/search?keyword=${t}`],['Amazonレビュー',`https://www.amazon.co.jp/s?k=${t}&i=stripbooks`]],
+    book:[['読書メーターの感想',`https://bookmeter.com/search?keyword=${t}`],['ブクログのレビュー',`https://booklog.jp/search?keyword=${t}`]],
     movie:[['Filmarksの感想',`https://filmarks.com/search/movies?q=${t}`],['映画.comのレビュー',`https://eiga.com/search/${t}/`],['KINENOTE',`https://www.kinenote.com/main/public/cinema/list.aspx?fw=${t}`]],
     museum:[['Googleマップの口コミ',`https://www.google.com/maps/search/${enc(it.creator||it.title)}`],['インターネットミュージアム',`https://www.museum.or.jp/search?keyword=${t}`]]
   };
+  const links=[['noteの感想記事（人気順）',noteUrl],['Amazonのレビュー',azUrl],...perType[it.type]];
   const posts=it.xPosts||[];
   return `<div class="panel">
     <h4>𝕏 のみんなの感想</h4>
@@ -521,24 +527,36 @@ function reviewPanel(it){
       <button class="btn small accent" onclick="window.open('${xFav}','_blank')">いいねが多い感想を探す →</button>
     </div>
     <div class="xadd">
-      <input type="text" id="xurl" placeholder="気に入った投稿のURLを貼り付け（https://x.com/…/status/…）"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();addXPost()}">
-      <button class="btn small ghost" onclick="addXPost()">追加</button>
+      <textarea id="xurl" rows="2" placeholder="投稿のURLを貼り付け（複数まとめてOK）"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();addXPost()}"></textarea>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="btn small ghost" onclick="pasteXPost()">貼り付け</button>
+        <button class="btn small ghost" onclick="addXPost()">追加</button>
+      </div>
     </div>
-    <div class="note" style="margin-top:8px">検索画面で見つけた投稿の「リンクをコピー」→ここに貼ると、本文がそのまま読める形で保存されます。</div>
+    <div class="note" style="margin-top:8px">気に入った投稿の「リンクをコピー」→「貼り付け」を押すだけで追加されます。改行で並べれば3件まとめて追加できます（3件ほどあると読み応えのあるページになります）。</div>
     <div id="xlist" style="margin-top:16px">${posts.length?posts.map((u,i)=>xEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
   </div>
   <div class="panel">
-    <div id="rkrev"></div>
-    <h4>楽天レビューの評価</h4>
-    <div class="prodscroll" id="rkrevlist"><div class="spin">${rkKey()?'レビューを集計中…':'楽天連携の準備中です'}</div></div>
-    <div class="note">レビュー数の多い順に上位5件を表示し、スクロールで最大30件まで見られます。タップすると楽天のレビュー本文が読めます。</div>
-  </div>
-  <div class="panel">
     <h4>各サイトの口コミ</h4>
-    <div class="linklist">${perType[it.type].map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
-    <div class="note">※ 読書メーター・Filmarks等はレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。</div>
+    <div id="rkrev"></div>
+    <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
+    <div class="note">※ 各サイトはレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。数値評価を取得できるのは楽天のみです。</div>
   </div>`;
+}
+async function loadRkReview(it){
+  if(!rkKey())return;
+  const el=$('#rkrev');if(!el)return;
+  try{
+    const d=await rkFetch(it.type,it.title,30);
+    const rev=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>+p.revc>0).sort((a,b)=>(+b.revc)-(+a.revc));
+    const top=rev[0];
+    if(!top){el.innerHTML='';return}
+    el.innerHTML=`<div class="revsum">
+      <div class="big">★${(+top.rev).toFixed(2)}</div>
+      <div class="cnt">楽天レビュー ${top.revc}件の平均評価<br><a href="${top.url}" target="_blank" rel="noopener" style="color:var(--gold)">レビューを読む →</a></div>
+    </div>`;
+  }catch(e){el.innerHTML=''}
 }
 /* ---- X（旧Twitter）投稿の埋め込み ---- */
 function xEmbedHtml(url,i){
@@ -556,45 +574,34 @@ function loadXWidgets(){
   s.id='twscript';s.async=true;s.charset='utf-8';s.src='https://platform.twitter.com/widgets.js';
   s.onload=render;document.head.appendChild(s);
 }
-function addXPost(){
-  const box=$('#xurl');if(!box)return;
-  const u=box.value.trim().split('?')[0];
-  if(!xValid(u)){toast('投稿のURLを貼り付けてください');return}
+function xExtract(text){
+  const re=/https?:\/\/(?:twitter\.com|x\.com)\/[^\/\s]+\/status\/\d+/g;
+  return [...new Set((String(text||'').match(re)||[]))];
+}
+function addXPost(text){
+  const box=$('#xurl');
+  const src=text!==undefined?text:(box?box.value:'');
+  const urls=xExtract(src);
+  if(!urls.length){toast('投稿のURLが見つかりません');return}
   const it=items.find(x=>x.id===window._detailId);if(!it)return;
   it.xPosts=it.xPosts||[];
-  if(it.xPosts.includes(u)){toast('すでに追加されています');return}
-  it.xPosts.push(u);it.updatedAt=Date.now();saveItems();
-  toast('投稿を追加しました');renderDetail(it.id);
+  let added=0;
+  urls.forEach(u=>{if(!it.xPosts.includes(u)){it.xPosts.push(u);added++}});
+  if(!added){toast('すでに追加されています');return}
+  it.updatedAt=Date.now();saveItems();
+  toast(added>1?`${added}件の投稿を追加しました`:'投稿を追加しました');
+  renderDetail(it.id);
+}
+async function pasteXPost(){
+  try{
+    const t=await navigator.clipboard.readText();
+    if(!xExtract(t).length){const b=$('#xurl');if(b)b.value=t;toast('投稿のURLが見つかりません');return}
+    addXPost(t);
+  }catch(e){toast('貼り付けできませんでした。欄に直接貼ってください')}
 }
 function delXPost(i){
   const it=items.find(x=>x.id===window._detailId);if(!it||!it.xPosts)return;
   it.xPosts.splice(i,1);it.updatedAt=Date.now();saveItems();renderDetail(it.id);
-}
-async function loadRkReview(it){
-  if(!rkKey())return;
-  try{
-    const d=await rkFetch(it.type,it.title,30);
-    const all=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>p.title);
-    const rev=all.filter(p=>+p.revc>0).sort((a,b)=>(+b.revc)-(+a.revc));
-    const top=rev[0];
-    const sum=$('#rkrev');
-    if(sum&&top)sum.innerHTML=`<div class="revsum">
-      <div class="big">★${(+top.rev).toFixed(2)}</div>
-      <div class="cnt">楽天レビュー ${top.revc}件の平均評価<br><a href="${top.url}" target="_blank" rel="noopener" style="color:var(--gold)">レビューを読む →</a></div>
-    </div>`;
-    const el=$('#rkrevlist');if(!el)return;
-    if(!rev.length){el.innerHTML=`<div class="spin">レビューのある商品が見つかりませんでした</div>`;return}
-    el.innerHTML=rev.map(p=>`
-      <a class="prod" href="${p.url}" target="_blank" rel="noopener">
-        ${p.img?`<img src="${bigImg(p.img)}" loading="lazy" alt="">`:'<div style="width:52px"></div>'}
-        <div style="flex:1;min-width:0">
-          <div class="pt">${esc(p.title)}</div>
-          <div class="pa">${esc(p.author)}</div>
-          <div class="pp"><span style="color:var(--gold)">★${(+p.rev).toFixed(2)}</span><span class="pr" style="color:var(--sub)">レビュー${p.revc}件</span></div>
-        </div></a>`).join('');
-  }catch(e){
-    const el=$('#rkrevlist');if(el)el.innerHTML=`<div class="spin">楽天連携が未設定のため表示できません</div>`;
-  }
 }
 /* ---- products / affiliate ---- */
 function linksPanel(it){
