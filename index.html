@@ -225,6 +225,36 @@ let settings=lsGet('kansou_settings',{});
 function saveItems(){lsSet('kansou_items',items)}
 function saveSettings(){lsSet('kansou_settings',settings)}
 let ui={filter:'all',q:'',sort:'new',dtab:'memo'};
+/* 初回だけ入るサンプル記事（削除したら復活しない） */
+function seedSample(){
+  if(lsGet('kansou_seeded',false))return;
+  lsSet('kansou_seeded',true);
+  if(items.length)return;
+  items.unshift({
+    id:'sample-hakone', createdAt:Date.now(), updatedAt:Date.now(),
+    type:'book', title:'サンプル｜俺達の箱根駅伝', creator:'池井戸潤',
+    date:new Date().toISOString().slice(0,10), rating:4,
+    quotes:'タスキがつながる瞬間の描写。ここだけ何度も読み返した。',
+    memo:'箱根駅伝って、走っている人だけの物語じゃないんだ、と気づかされた一冊。\n予選会で敗れた大学から集まった寄せ集めのチームが、一本のタスキでだんだんひとつになっていく過程がとにかく熱い。走る側と、それを中継するテレビ局側の両方から描かれるので、毎年なんとなく眺めていた正月の景色が急に立体的になった。\n区間ごとに主役が入れ替わるから、誰か一人というよりチーム全体を応援している気持ちで読み終えた。次の正月が待ち遠しい。\n\n※これはサンプルです。感想は右上の「⋯」から編集削除できます。',
+    cover:'', tags:['駅伝','スポーツ小説','正月に読みたい'],
+    wikiTitle:'俺たちの箱根駅伝', searchTitle:'俺たちの箱根駅伝',
+    xPosts:['https://x.com/orehako_ntv/status/2087645299271512355']
+  });
+  saveItems();
+}
+/* 表紙が未設定の記録に、楽天の商品画像を引用して表紙にする */
+async function fillCover(id){
+  const it=items.find(x=>x.id===id);
+  if(!it||it.cover||!rkKey())return;
+  try{
+    const d=await rkFetch(it.type,srchTitle(it),3);
+    const p=(d.Items||[]).map(i=>rkNorm(it.type,i)).find(x=>x.img);
+    if(!p)return;
+    it.cover=bigImg(p.img);saveItems();
+    if(document.body.classList.contains('viewing'))return;
+    if(window._detailId===it.id)renderDetail(it.id);else renderList();
+  }catch(e){}
+}
 /* ============ utils ============ */
 const $=s=>document.querySelector(s);
 function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -249,6 +279,8 @@ async function rkFetch(type,q,hits){
   rkState='ok';return d;
 }
 function bigImg(u){return (u||'').replace(/\?_ex=\d+x\d+/,'?_ex=400x400')}
+/* 検索に使うタイトル（「サンプル｜」などの接頭辞は外す） */
+function srchTitle(it){const t=String((it&&it.title)||'');return (it&&it.searchTitle)||t.replace(/^サンプル[｜|]\s*/,'')||t}
 function rkNorm(type,i){
   if(type==='museum')return {title:i.itemName,author:i.shopName,price:i.itemPrice,img:(i.mediumImageUrls||[])[0]||'',url:i.affiliateUrl||i.itemUrl,rev:i.reviewAverage,revc:i.reviewCount};
   return {title:i.title,author:i.author||i.artistName||'',price:i.itemPrice,img:i.largeImageUrl||i.mediumImageUrl||'',url:i.affiliateUrl||i.itemUrl,rev:i.reviewAverage,revc:i.reviewCount};
@@ -694,7 +726,7 @@ async function loadRkReview(it){
   if(!rkKey())return;
   const el=$('#rkrev');if(!el)return;
   try{
-    const d=await rkFetch(it.type,it.title,30);
+    const d=await rkFetch(it.type,srchTitle(it),30);
     const rev=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>+p.revc>0).sort((a,b)=>(+b.revc)-(+a.revc));
     const top=rev[0];
     if(!top){el.innerHTML='';return}
@@ -791,7 +823,7 @@ function delXPost(i){
 }
 /* ---- products / affiliate ---- */
 function linksPanel(it){
-  const t=enc(it.title);const tag=siteCfg.amazonTag?`&tag=${enc(siteCfg.amazonTag)}`:'';
+  const t=enc(srchTitle(it));const tag=siteCfg.amazonTag?`&tag=${enc(siteCfg.amazonTag)}`:'';
   const az=it.type==='book'
     ?[['Amazonで本を探す',`https://www.amazon.co.jp/s?k=${t}&i=stripbooks${tag}`]]
     :it.type==='movie'
@@ -808,7 +840,7 @@ async function loadRkProducts(it){
   if(!rkKey())return;
   const el=$('#rklist');if(!el)return;
   try{
-    const d=await rkFetch(it.type,it.title,30);
+    const d=await rkFetch(it.type,srchTitle(it),30);
     const list=(d.Items||[]).map(i=>rkNorm(it.type,i)).filter(p=>p.title);
     if(!list.length){el.innerHTML=`<div class="spin">商品が見つかりませんでした</div>`;return}
     el.innerHTML=list.map(p=>`
@@ -1325,7 +1357,7 @@ function myPubEmbed(url){
   return id?`<iframe class="note-embed" src="https://note.com/embed/notes/${id}" height="400" loading="lazy" title="note記事"></iframe>`:'';
 }
 /* ============ init ============ */
-if(location.hash.startsWith('#s=')){bootViewer(location.hash.slice(3))}else{renderList()}
+if(location.hash.startsWith('#s=')){bootViewer(location.hash.slice(3))}else{seedSample();renderList()}
 addEventListener('click',closeItemMenu);
 addEventListener('keydown',e=>{if(e.key==='Escape')closeItemMenu()});
 addEventListener('hashchange',()=>{
@@ -1344,7 +1376,7 @@ addEventListener('hashchange',()=>{
     }catch(e){}
   }
   rkState='unconfigured';
-})();
+})().then(()=>fillCover('sample-hakone'));
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
