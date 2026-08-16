@@ -125,6 +125,13 @@ form textarea{min-height:110px;resize:vertical;line-height:1.9;border:1px solid 
 .prod .pa{font-size:.7rem;color:var(--sub);margin-top:2px;letter-spacing:.04em}
 .prod .pp{font-size:.84rem;color:var(--ink);font-weight:500;margin-top:4px;letter-spacing:.05em}
 .prod .pr{font-size:.68rem;color:var(--gold);font-weight:400;margin-left:8px}
+.xadd{display:flex;gap:10px;align-items:center}
+.xadd input{flex:1;border:none;border-bottom:1px solid var(--line);padding:10px 2px;font-size:.85rem;background:transparent;font-family:var(--sans)}
+.xadd input:focus{outline:none;border-color:var(--gold)}
+.xpost{position:relative;margin-bottom:10px}
+.xpost .xdel{position:absolute;right:-6px;top:-6px;z-index:2;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sub);cursor:pointer;font-size:.85rem;line-height:1}
+.xpost .xdel:hover{color:var(--danger);border-color:var(--danger)}
+.xpost blockquote{margin:0}
 .revsum{display:flex;align-items:center;gap:16px;border:1px solid var(--gold-soft);border-radius:3px;padding:16px;margin-bottom:16px;background:linear-gradient(135deg,#fdfcf8,#f7f3e9)}
 .revsum .big{font-family:var(--serif);font-size:1.9rem;font-weight:600;color:var(--gold)}
 .revsum .cnt{font-size:.76rem;color:var(--sub);line-height:1.8;letter-spacing:.04em}
@@ -392,7 +399,7 @@ function renderDetail(id){
   const p=$('#dpanel');
   if(ui.dtab==='memo')p.innerHTML=memoPanel(it);
   else if(ui.dtab==='wiki'){p.innerHTML=`<div class="panel"><div class="spin">Wikipediaを検索中…</div></div>`;loadWiki(it)}
-  else if(ui.dtab==='review'){p.innerHTML=reviewPanel(it);loadRkReview(it)}
+  else if(ui.dtab==='review'){p.innerHTML=reviewPanel(it);loadRkReview(it);if((it.xPosts||[]).length)loadXWidgets()}
   else{p.innerHTML=linksPanel(it);loadRkProducts(it)}
 }
 function memoPanel(it){
@@ -507,17 +514,61 @@ function reviewPanel(it){
     movie:[['Filmarksの感想',`https://filmarks.com/search/movies?q=${t}`],['映画.comのレビュー',`https://eiga.com/search/${t}/`],['KINENOTE',`https://www.kinenote.com/main/public/cinema/list.aspx?fw=${t}`]],
     museum:[['Googleマップの口コミ',`https://www.google.com/maps/search/${enc(it.creator||it.title)}`],['インターネットミュージアム',`https://www.museum.or.jp/search?keyword=${t}`]]
   };
-  const links=[['𝕏 でいいねが多い感想を見る',xFav],...perType[it.type]];
+  const posts=it.xPosts||[];
   return `<div class="panel">
+    <h4>𝕏 のみんなの感想</h4>
+    <div class="btnrow" style="margin-top:0;margin-bottom:14px">
+      <button class="btn small accent" onclick="window.open('${xFav}','_blank')">いいねが多い感想を探す →</button>
+    </div>
+    <div class="xadd">
+      <input type="text" id="xurl" placeholder="気に入った投稿のURLを貼り付け（https://x.com/…/status/…）"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addXPost()}">
+      <button class="btn small ghost" onclick="addXPost()">追加</button>
+    </div>
+    <div class="note" style="margin-top:8px">検索画面で見つけた投稿の「リンクをコピー」→ここに貼ると、本文がそのまま読める形で保存されます。</div>
+    <div id="xlist" style="margin-top:16px">${posts.length?posts.map((u,i)=>xEmbedHtml(u,i)).join(''):'<div class="note">まだ投稿が登録されていません。</div>'}</div>
+  </div>
+  <div class="panel">
     <div id="rkrev"></div>
-    <h4>評価の高い版・関連商品のレビュー</h4>
+    <h4>楽天レビューの評価</h4>
     <div class="prodscroll" id="rkrevlist"><div class="spin">${rkKey()?'レビューを集計中…':'楽天連携の準備中です'}</div></div>
     <div class="note">レビュー数の多い順に上位5件を表示し、スクロールで最大30件まで見られます。タップすると楽天のレビュー本文が読めます。</div>
-    <hr class="sep">
-    <h4>みんなの感想・口コミ</h4>
-    <div class="linklist">${links.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
-    <div class="note">※ 各口コミサイトはレビュー本文の取得APIを公開していないため、𝕏はいいね50以上に絞った検索、各サイトは作品ページへの直リンクです。</div>
+  </div>
+  <div class="panel">
+    <h4>各サイトの口コミ</h4>
+    <div class="linklist">${perType[it.type].map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${l}</a>`).join('')}</div>
+    <div class="note">※ 読書メーター・Filmarks等はレビュー本文を取得できるAPIを公開していないため、作品ページへの直リンクです。</div>
   </div>`;
+}
+/* ---- X（旧Twitter）投稿の埋め込み ---- */
+function xEmbedHtml(url,i){
+  return `<div class="xpost">
+    <button class="xdel" onclick="delXPost(${i})" aria-label="削除">×</button>
+    <blockquote class="twitter-tweet" data-lang="ja" data-dnt="true"><a href="${esc(url)}"></a></blockquote>
+  </div>`;
+}
+function xValid(u){return /^https?:\/\/(twitter\.com|x\.com)\/[^\/]+\/status\/\d+/.test(u)}
+function loadXWidgets(){
+  const render=()=>{if(window.twttr&&twttr.widgets)twttr.widgets.load($('#xlist'))};
+  if(window.twttr&&window.twttr.widgets)return render();
+  if(document.getElementById('twscript'))return setTimeout(render,900);
+  const s=document.createElement('script');
+  s.id='twscript';s.async=true;s.charset='utf-8';s.src='https://platform.twitter.com/widgets.js';
+  s.onload=render;document.head.appendChild(s);
+}
+function addXPost(){
+  const box=$('#xurl');if(!box)return;
+  const u=box.value.trim().split('?')[0];
+  if(!xValid(u)){toast('投稿のURLを貼り付けてください');return}
+  const it=items.find(x=>x.id===window._detailId);if(!it)return;
+  it.xPosts=it.xPosts||[];
+  if(it.xPosts.includes(u)){toast('すでに追加されています');return}
+  it.xPosts.push(u);it.updatedAt=Date.now();saveItems();
+  toast('投稿を追加しました');renderDetail(it.id);
+}
+function delXPost(i){
+  const it=items.find(x=>x.id===window._detailId);if(!it||!it.xPosts)return;
+  it.xPosts.splice(i,1);it.updatedAt=Date.now();saveItems();renderDetail(it.id);
 }
 async function loadRkReview(it){
   if(!rkKey())return;
