@@ -1,5 +1,5 @@
-const CACHE = 'myshelf-v7';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png?v=7', './icon-512.png?v=7', './apple-touch-icon.png?v=7', './favicon-32.png?v=7', './og.png'];
+const CACHE = 'myshelf-v8';
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png?v=8', './icon-512.png?v=8', './apple-touch-icon.png?v=8', './favicon-32.png?v=8', './og.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
